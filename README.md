@@ -54,29 +54,30 @@ The CRTeamer is a **5-hour practical exam** by The SecOps Group / PentestingExam
 
 | # | Phase | Syllabus Domain | Study Time | Level |
 |---|-------|----------------|-----------|-------|
-| 00 | [Windows Internals & Red Team Mindset](#phase-00) | Prerequisites | 1 week | Beginner |
-| 01 | [Red Team Infrastructure & OPSEC](#phase-01) | Infrastructure & OPSEC | 1 week | Beginner |
-| 02 | [C2 Frameworks Deep Dive](#phase-02) | Infrastructure & OPSEC | 1 week | Intermediate |
-| 03 | [Payload Development — How Detection Works](#phase-03) | Payload Development | 1 week | Intermediate |
-| 04 | [AMSI, ETW & AV Bypass](#phase-04) | Payload Development | 1 week | Intermediate |
-| 05 | [Initial Access in Assumed Breach Scenarios](#phase-05) | Initial Access | 3 days | Beginner |
-| 06 | [Local Enumeration — What to Look For and Why](#phase-06) | Local Enumeration | 1 week | Beginner |
-| 07 | [Windows Privilege Escalation](#phase-07) | Windows PrivEsc | 2 weeks | Intermediate |
-| 08 | [Credential Access — How Windows Stores Secrets](#phase-08) | Credential Access | 1 week | Intermediate |
-| 09 | [Lateral Movement & Pivoting](#phase-09) | Lateral Movement | 1 week | Intermediate |
-| 10 | [Active Directory Fundamentals](#phase-10) | AD prerequisite | 1 week | Beginner |
-| 11 | [AD Enumeration — Reading the Attack Surface](#phase-11) | AD Enumeration | 1 week | Intermediate |
-| 12 | [Kerberos — Protocol to Attacks](#phase-12) | Kerberos-Based Attacks | 2 weeks | Intermediate |
-| 13 | [Domain Privilege Escalation — Thinking in Paths](#phase-13) | Domain PrivEsc | 1 week | Advanced |
-| 14 | [AD Persistence — Durable Access](#phase-14) | AD Persistence | 1 week | Advanced |
-| 15 | [LOLBAS & Red Team Tradecraft](#phase-15) | Living-off-the-Land | 3 days | Intermediate |
-| 16 | [PowerShell & .NET Tradecraft](#phase-16) | PS & .NET + Offensive .NET | 1 week | Advanced |
-| 17 | [Full Chain Simulation — Exam Readiness](#phase-17) | All domains | 2 weeks | Advanced |
-
+| 00 | [Windows Internals & Red Team Mindset](https://github.com/ErenYeager29/AD-CRTeamer/blob/main/references/00-windows-internals.md) | Prerequisites | 1 week | Beginner |
+| 01 | [Red Team Infrastructure & OPSEC](https://github.com/ErenYeager29/AD-CRTeamer/blob/main/references/01-c2-infrastructure.md) | Infrastructure & OPSEC | 1 week | Beginner |
+| 02 | [C2 Frameworks Deep Dive](https://github.com/ErenYeager29/AD-CRTeamer/blob/main/references/02-c2-deep-dive.md) | Infrastructure & OPSEC | 1 week | Intermediate |
+| 03 | [Payload Development — How Detection Works](https://github.com/ErenYeager29/AD-CRTeamer/blob/main/references/03-payload-development.md) | Payload Development | 1 week | Intermediate |
+| 04 | [AMSI, ETW & AV Bypass](https://github.com/ErenYeager29/AD-CRTeamer/blob/main/references/04-amsi-etw-bypass.md) | Payload Development | 1 week | Intermediate |
+| 05 | [Initial Access in Assumed Breach Scenarios](https://github.com/ErenYeager29/AD-CRTeamer/blob/main/references/05-initial-access.md) | Initial Access | 3 days | Beginner |
+| 06 | [Local Enumeration — What to Look For and Why](https://github.com/ErenYeager29/AD-CRTeamer/blob/main/references/06-local-enum.md) | Local Enumeration | 1 week | Beginner |
+| 07 | [Windows Privilege Escalation](https://github.com/ErenYeager29/AD-CRTeamer/blob/main/references/07-windows-privesc.md) | Windows PrivEsc | 2 weeks | Intermediate |
+| 08 | [Credential Access — How Windows Stores Secrets](https://github.com/ErenYeager29/AD-CRTeamer/blob/main/references/08-credential-access.md) | Credential Access | 1 week | Intermediate |
+| 09 | [Lateral Movement & Pivoting](https://github.com/ErenYeager29/AD-CRTeamer/blob/main/references/09-lateral-movement.md) | Lateral Movement | 1 week | Intermediate |
+| 10 | [Active Directory Fundamentals](https://github.com/ErenYeager29/AD-CRTeamer/blob/main/references/10-ad-fundamentals.md) | AD prerequisite | 1 week | Beginner |
+| 11 | [AD Enumeration — Reading the Attack Surface](https://github.com/ErenYeager29/AD-CRTeamer/blob/main/references/11-ad-enumeration.md) | AD Enumeration | 1 week | Intermediate |
+| 12 | [Kerberos — Protocol to Attacks](https://github.com/ErenYeager29/AD-CRTeamer/blob/main/references/12-kerberos-attacks.md) | Kerberos-Based Attacks | 2 weeks | Intermediate |
+| 13 | [Domain Privilege Escalation — Thinking in Paths](https://github.com/ErenYeager29/AD-CRTeamer/blob/main/references/13-domain-privesc.md) | Domain PrivEsc | 1 week | Advanced |
+| 14 | [AD Persistence — Durable Access](https://github.com/ErenYeager29/AD-CRTeamer/blob/main/references/14-ad-persistence.md) | AD Persistence | 1 week | Advanced |
+| 15 | [LOLBAS & Red Team Tradecraft](https://github.com/ErenYeager29/AD-CRTeamer/blob/main/references/15-lolbas.md) | Living-off-the-Land | 3 days | Intermediate |
+| 16 | [PowerShell & .NET Tradecraft](https://github.com/ErenYeager29/AD-CRTeamer/blob/main/references/16-ps-dotnet.md) | PS & .NET + Offensive .NET | 1 week | Advanced |
+| 17 | [Full Chain Simulation — Exam Readiness](https://github.com/ErenYeager29/AD-CRTeamer/blob/main/references/17-full-chain.md) | All domains | 2 weeks | Advanced |
+ 
 **Total estimated study time**: 16–20 weeks part-time (1–2 hours/day)
 **Accelerated**: 8–10 weeks full-time
-
+ 
 ---
+
 
 ## What Makes This Different
 
