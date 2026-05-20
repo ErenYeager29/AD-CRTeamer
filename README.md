@@ -1,4 +1,4 @@
-# AD-CRTeamer Learning Path — Beginner to Exam-Ready
+# CRTeamer Learning Path — Beginner to Exam-Ready
 
 A structured, phase-by-phase learning skill for the **Certified Red Teamer (CRTeamer)** exam by [PentestingExams.com](https://pentestingexams.com/certifications/professional/certified-red-teamer/). Covers every exam domain from first principles — not just commands, but **why techniques work**, when to use them, and how to practice them.
 
@@ -54,7 +54,7 @@ The CRTeamer is a **5-hour practical exam** by The SecOps Group / PentestingExam
 
 | # | Phase | Syllabus Domain | Study Time | Level |
 |---|-------|----------------|-----------|-------|
-| 00 | [Windows Internals & Red Team Mindset] | Prerequisites | 1 week | Beginner |
+| 00 | [Windows Internals & Red Team Mindset](#phase-00) | Prerequisites | 1 week | Beginner |
 | 01 | [Red Team Infrastructure & OPSEC](#phase-01) | Infrastructure & OPSEC | 1 week | Beginner |
 | 02 | [C2 Frameworks Deep Dive](#phase-02) | Infrastructure & OPSEC | 1 week | Intermediate |
 | 03 | [Payload Development — How Detection Works](#phase-03) | Payload Development | 1 week | Intermediate |
