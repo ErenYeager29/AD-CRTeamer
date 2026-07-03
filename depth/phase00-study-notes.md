@@ -191,6 +191,8 @@ These DLLs live in `C:\Windows\System32\`. Every Windows application uses them. 
 7. Every folder listed in the %PATH% environment variable
 ```
 
+DLL hijacking relies on the DLL search order that Windows uses when loading DLL files. This search order is a sequence of locations a program checks when loading a DLL. The sequence can be divided into two parts: special search locations and standard search locations. You can find the search order comprising both parts
+
 <img width="1856" height="2048" alt="image" src="https://github.com/user-attachments/assets/abb1a7cb-5391-46cd-87b5-b8e2ae5c8072" />
 
 
