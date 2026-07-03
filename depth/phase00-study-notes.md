@@ -191,6 +191,9 @@ These DLLs live in `C:\Windows\System32\`. Every Windows application uses them. 
 7. Every folder listed in the %PATH% environment variable
 ```
 
+<img width="1856" height="2048" alt="image" src="https://github.com/user-attachments/assets/abb1a7cb-5391-46cd-87b5-b8e2ae5c8072" />
+
+
 Windows stops searching the moment it finds a match.
 
 **KnownDLLs — the critical exception**:
