@@ -227,6 +227,9 @@ wlbsctrl.dll     ← CAN hijack
 version.dll      ← CAN hijack (loaded by many apps)
 ```
 
+**More on DLL Hijacking**:
+https://unit42.paloaltonetworks.com/dll-hijacking-techniques/
+
 ---
 
 ### 🔶 WHY
