@@ -195,6 +195,18 @@ DLL hijacking relies on the DLL search order that Windows uses when loading DLL 
 
 <img width="1856" height="2048" alt="image" src="https://github.com/user-attachments/assets/abb1a7cb-5391-46cd-87b5-b8e2ae5c8072" />
 
+Why Microsoft separates them
+
+The first six are decision points rather than folders:
+
+Is the DLL redirected?
+Is it an API Set?
+Is there a Side-by-Side manifest?
+Is it already loaded?
+Is it a Known DLL?
+Is it part of the package dependencies?
+
+Only if none of those resolve the DLL does Windows begin searching actual directories.
 
 Windows stops searching the moment it finds a match.
 
