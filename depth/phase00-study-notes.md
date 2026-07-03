@@ -195,7 +195,7 @@ DLL hijacking relies on the DLL search order that Windows uses when loading DLL 
 
 <img width="1856" height="2048" alt="image" src="https://github.com/user-attachments/assets/abb1a7cb-5391-46cd-87b5-b8e2ae5c8072" />
 
-Why Microsoft separates them
+**Why Microsoft separates them**
 
 The first six are decision points rather than folders:
 
