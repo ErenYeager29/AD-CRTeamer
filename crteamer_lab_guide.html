@@ -1,0 +1,254 @@
+
+<h2 class="sr-only">CRTeamer practice lab guide — interactive phase-to-lab mapping</h2>
+
+<style>
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+  .pill{padding:5px 12px;border-radius:20px;border:0.5px solid var(--border);background:var(--surface-1);color:var(--text-secondary);font-size:12px;cursor:pointer;transition:all .15s}
+  .pill.on{background:var(--bg-accent);color:var(--text-accent);border-color:var(--border-accent)}
+  .phase-row{border:0.5px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden}
+  .phase-head{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;background:var(--surface-1)}
+  .phase-head:hover{background:var(--surface-2)}
+  .ph-num{font-size:11px;font-weight:500;color:var(--text-accent);background:var(--bg-accent);padding:2px 7px;border-radius:12px;white-space:nowrap}
+  .ph-title{font-size:13px;font-weight:500;color:var(--text-primary);flex:1}
+  .ph-chevron{font-size:13px;color:var(--text-secondary);transition:transform .2s}
+  .ph-chevron.open{transform:rotate(180deg)}
+  .labs-grid{display:none;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;padding:10px 14px 14px}
+  .labs-grid.open{display:grid}
+  .lab-card{background:var(--surface-2);border:0.5px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:border-color .15s}
+  .lab-card:hover{border-color:var(--border-strong)}
+  .lab-name{font-size:12px;font-weight:500;color:var(--text-primary);margin-bottom:3px}
+  .lab-sub{font-size:11px;color:var(--text-secondary);margin-bottom:6px}
+  .tags{display:flex;gap:4px;flex-wrap:wrap}
+  .tag{font-size:10px;padding:1px 6px;border-radius:8px;font-weight:500}
+  .tag-free{background:#EAF3DE;color:#3B6D11}
+  .tag-paid{background:#FAEEDA;color:#854F0B}
+  .tag-local{background:#EEEDFE;color:#534AB7}
+  .tag-thm{background:#E6F1FB;color:#185FA5}
+  .tag-htb{background:#FAECE7;color:#993C1D}
+  .tag-easy{background:#E1F5EE;color:#0F6E56}
+  .tag-medium{background:#FAEEDA;color:#854F0B}
+  .tag-hard{background:#FCEBEB;color:#A32D2D}
+  .legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;font-size:11px}
+  .legend span{display:flex;align-items:center;gap:4px;color:var(--text-secondary)}
+  .summary-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+  .sum{background:var(--surface-1);border:0.5px solid var(--border);border-radius:8px;padding:10px;text-align:center}
+  .sum-n{font-size:20px;font-weight:500;color:var(--text-primary)}
+  .sum-l{font-size:11px;color:var(--text-secondary);margin-top:2px}
+  .empty{padding:16px;text-align:center;color:var(--text-secondary);font-size:13px;display:none}
+</style>
+
+<div class="summary-bar">
+  <div class="sum"><div class="sum-n" id="total-labs">0</div><div class="sum-l">total labs</div></div>
+  <div class="sum"><div class="sum-n" id="free-labs">0</div><div class="sum-l">free labs</div></div>
+  <div class="sum"><div class="sum-n" id="paid-labs">0</div><div class="sum-l">paid / subscription</div></div>
+</div>
+
+<div class="filters" id="filters">
+  <span style="font-size:12px;color:var(--text-secondary);align-self:center">Filter:</span>
+  <button class="pill on" data-f="all">All phases</button>
+  <button class="pill" data-f="thm">TryHackMe</button>
+  <button class="pill" data-f="htb">HackTheBox</button>
+  <button class="pill" data-f="local">Local lab</button>
+  <button class="pill" data-f="free">Free only</button>
+  <button class="pill" data-f="easy">Beginner</button>
+  <button class="pill" data-f="medium">Intermediate</button>
+  <button class="pill" data-f="hard">Advanced</button>
+</div>
+
+<div class="legend">
+  <span><span class="tag tag-thm">THM</span> TryHackMe</span>
+  <span><span class="tag tag-htb">HTB</span> HackTheBox</span>
+  <span><span class="tag tag-local">LOCAL</span> Your own lab</span>
+  <span><span class="tag tag-free">FREE</span></span>
+  <span><span class="tag tag-paid">PAID</span></span>
+  <span><span class="tag tag-easy">Beginner</span></span>
+  <span><span class="tag tag-medium">Intermediate</span></span>
+  <span><span class="tag tag-hard">Advanced</span></span>
+</div>
+
+<div id="phases-list"></div>
+<div class="empty" id="empty-msg">No labs match this filter — try a different one.</div>
+
+<script>
+const phases = [
+  { num:"00", title:"Windows Internals & Red Team Mindset", labs:[
+    {name:"Windows Fundamentals 1-3",sub:"Processes, registry, services",plat:"thm",cost:"free",diff:"easy",url:"https://tryhackme.com/room/windowsfundamentals1xbx"},
+    {name:"Windows Internals",sub:"Handles, DLLs, threads deep dive",plat:"thm",cost:"free",diff:"easy",url:"https://tryhackme.com/room/windowsinternals"},
+    {name:"Intro to C2",sub:"C2 concepts before touching a tool",plat:"thm",cost:"free",diff:"easy",url:"https://tryhackme.com/room/introtoc2"},
+  ]},
+  { num:"01", title:"Red Team Infrastructure & OPSEC", labs:[
+    {name:"Red Team Fundamentals",sub:"Red team mindset, OPSEC basics",plat:"thm",cost:"free",diff:"easy",url:"https://tryhackme.com/room/redteamfundamentals"},
+    {name:"Red Team OPSEC",sub:"OPSEC framework hands-on",plat:"thm",cost:"free",diff:"easy",url:"https://tryhackme.com/room/opsec"},
+    {name:"Sliver setup drill",sub:"Deploy C2 from scratch, under 20 min",plat:"local",cost:"free",diff:"medium",url:""},
+  ]},
+  { num:"02", title:"C2 Frameworks Deep Dive", labs:[
+    {name:"Abusing Windows Internals",sub:"Process injection, migration",plat:"thm",cost:"paid",diff:"medium",url:"https://tryhackme.com/room/abusingwindowsinternals"},
+    {name:"execute-assembly drill",sub:"Run SharpHound, Rubeus, Seatbelt in-memory",plat:"local",cost:"free",diff:"medium",url:""},
+    {name:"Chisel pivot lab",sub:"3-VM setup: Kali → WS → DC",plat:"local",cost:"free",diff:"medium",url:""},
+  ]},
+  { num:"03", title:"Payload Development — How Detection Works", labs:[
+    {name:"AV Evasion: Shellcode",sub:"Shellcode loaders, encoders",plat:"thm",cost:"paid",diff:"medium",url:"https://tryhackme.com/room/avevasionshellcode"},
+    {name:"Obfuscation Principles",sub:"String obfuscation techniques",plat:"thm",cost:"paid",diff:"medium",url:"https://tryhackme.com/room/obfuscationprinciples"},
+    {name:"ThreatCheck drill",sub:"Find Defender trigger bytes in a tool",plat:"local",cost:"free",diff:"medium",url:""},
+  ]},
+  { num:"04", title:"AMSI, ETW & AV Bypass", labs:[
+    {name:"AV Evasion: Shellcode",sub:"AMSI + shellcode bypass",plat:"thm",cost:"paid",diff:"medium",url:"https://tryhackme.com/room/avevasionshellcode"},
+    {name:"AMSI bypass lab",sub:"3 bypass methods, live Defender",plat:"local",cost:"free",diff:"medium",url:""},
+    {name:"Invisi-Shell practice",sub:"PS session with logging disabled",plat:"local",cost:"free",diff:"easy",url:""},
+  ]},
+  { num:"05", title:"Initial Access — Assumed Breach", labs:[
+    {name:"Breaching Active Directory",sub:"Assumed breach foothold techniques",plat:"thm",cost:"paid",diff:"easy",url:"https://tryhackme.com/room/breachingad"},
+    {name:"HTB: Active",sub:"SMB → GPP creds → Kerberoast → DA",plat:"htb",cost:"free",diff:"easy",url:"https://app.hackthebox.com/machines/Active"},
+    {name:"HTB: Forest",sub:"AS-REP → foothold, classic path",plat:"htb",cost:"free",diff:"easy",url:"https://app.hackthebox.com/machines/Forest"},
+  ]},
+  { num:"06", title:"Local Enumeration — What to Look For", labs:[
+    {name:"Windows PrivEsc Arena",sub:"Multiple vulns, guided triage",plat:"thm",cost:"free",diff:"easy",url:"https://tryhackme.com/room/windowsprivesc20"},
+    {name:"Steel Mountain",sub:"Weak service, Metasploit + manual",plat:"thm",cost:"paid",diff:"easy",url:"https://tryhackme.com/room/steelmountain"},
+    {name:"winPEAS triage drill",sub:"Find top 3 findings in 5 min",plat:"local",cost:"free",diff:"easy",url:""},
+  ]},
+  { num:"07", title:"Windows Privilege Escalation", labs:[
+    {name:"Windows PrivEsc",sub:"All techniques, thorough walkthrough",plat:"thm",cost:"paid",diff:"medium",url:"https://tryhackme.com/room/windows10privesc"},
+    {name:"HTB: Devel",sub:"Token impersonation classic",plat:"htb",cost:"free",diff:"easy",url:"https://app.hackthebox.com/machines/Devel"},
+    {name:"HTB: Optimum",sub:"Windows privesc end-to-end",plat:"htb",cost:"free",diff:"easy",url:"https://app.hackthebox.com/machines/Optimum"},
+    {name:"GodPotato drill",sub:"SeImpersonate → SYSTEM, timed",plat:"local",cost:"free",diff:"medium",url:""},
+  ]},
+  { num:"08", title:"Credential Access — Windows Secrets", labs:[
+    {name:"Post-Exploitation Basics",sub:"Mimikatz, cred dump guided",plat:"thm",cost:"paid",diff:"medium",url:"https://tryhackme.com/room/postexploit"},
+    {name:"HTB: Monteverde",sub:"Azure AD creds in config files",plat:"htb",cost:"free",diff:"medium",url:"https://app.hackthebox.com/machines/Monteverde"},
+    {name:"LSASS dump lab",sub:"4 methods, parse with pypykatz",plat:"local",cost:"free",diff:"medium",url:""},
+    {name:"PtH lab",sub:"Hash → evil-winrm, no password",plat:"local",cost:"free",diff:"medium",url:""},
+  ]},
+  { num:"09", title:"Lateral Movement & Pivoting", labs:[
+    {name:"Lateral Movement and Pivoting",sub:"All protocols + tools guided",plat:"thm",cost:"paid",diff:"medium",url:"https://tryhackme.com/room/lateralmovementandpivoting"},
+    {name:"Pivoting, Tunnelling and Port Forwarding",sub:"Chisel, Ligolo, SSH tunnels",plat:"thm",cost:"paid",diff:"medium",url:"https://tryhackme.com/room/pivotingTunnellingandPortForwarding"},
+    {name:"3-VM pivot lab",sub:"Kali → WS01 → DC, SOCKS only",plat:"local",cost:"free",diff:"medium",url:""},
+  ]},
+  { num:"10", title:"Active Directory Fundamentals", labs:[
+    {name:"Active Directory Basics",sub:"AD concepts interactive",plat:"thm",cost:"free",diff:"easy",url:"https://tryhackme.com/room/winadbasics"},
+    {name:"Attacking Kerberos",sub:"Kerberos protocol + attacks",plat:"thm",cost:"free",diff:"easy",url:"https://tryhackme.com/room/attackingkerberos"},
+    {name:"ired.team AD reading",sub:"Read the Kerberos attack series",plat:"local",cost:"free",diff:"easy",url:"https://www.ired.team/offensive-security-experiments/active-directory-kerberos-abuse"},
+  ]},
+  { num:"11", title:"AD Enumeration — BloodHound", labs:[
+    {name:"AD Enumeration",sub:"BloodHound guided lab",plat:"thm",cost:"paid",diff:"medium",url:"https://tryhackme.com/room/adenumeration"},
+    {name:"HTB: Active",sub:"Enum → Kerberoast → DA",plat:"htb",cost:"free",diff:"easy",url:"https://app.hackthebox.com/machines/Active"},
+    {name:"HTB: Sauna",sub:"AS-REP → BloodHound → DCSync",plat:"htb",cost:"free",diff:"easy",url:"https://app.hackthebox.com/machines/Sauna"},
+    {name:"GOAD: BloodHound run",sub:"Find all 15 known attack paths",plat:"local",cost:"free",diff:"hard",url:"https://github.com/Orange-Cyberdefense/GOAD"},
+  ]},
+  { num:"12", title:"Kerberos — Protocol to Attacks", labs:[
+    {name:"Attacking Kerberos",sub:"Kerberoast, AS-REP, PtT",plat:"thm",cost:"free",diff:"easy",url:"https://tryhackme.com/room/attackingkerberos"},
+    {name:"HTB: Forest",sub:"AS-REP → DCSync, clean path",plat:"htb",cost:"free",diff:"easy",url:"https://app.hackthebox.com/machines/Forest"},
+    {name:"HTB: Active",sub:"Kerberoast → shell → DA",plat:"htb",cost:"free",diff:"easy",url:"https://app.hackthebox.com/machines/Active"},
+    {name:"GOAD: delegation paths",sub:"RBCD, unconstrained, constrained",plat:"local",cost:"free",diff:"hard",url:"https://github.com/Orange-Cyberdefense/GOAD"},
+  ]},
+  { num:"13", title:"Domain Privilege Escalation", labs:[
+    {name:"HTB: Cascade",sub:"AD object abuse, custom paths",plat:"htb",cost:"paid",diff:"medium",url:"https://app.hackthebox.com/machines/Cascade"},
+    {name:"HTB: Resolute",sub:"DNSAdmin, AD enum",plat:"htb",cost:"free",diff:"medium",url:"https://app.hackthebox.com/machines/Resolute"},
+    {name:"GOAD: ACL exploitation",sub:"5+ different ACL chains",plat:"local",cost:"free",diff:"hard",url:"https://github.com/Orange-Cyberdefense/GOAD"},
+  ]},
+  { num:"14", title:"AD Persistence", labs:[
+    {name:"Windows Persistence",sub:"Registry, task, WMI methods",plat:"thm",cost:"paid",diff:"medium",url:"https://tryhackme.com/room/persistence"},
+    {name:"Golden Ticket lab",sub:"DCSync → forge → auth",plat:"local",cost:"free",diff:"hard",url:""},
+    {name:"AdminSDHolder lab",sub:"Set + verify 60-min SDProp",plat:"local",cost:"free",diff:"hard",url:""},
+  ]},
+  { num:"15", title:"LOLBAS & Tradecraft", labs:[
+    {name:"Living Off the Land",sub:"Signed binary execution",plat:"thm",cost:"paid",diff:"medium",url:"https://tryhackme.com/room/livingofftheland"},
+    {name:"LOLBAS Project",sub:"Full reference, read + test each",plat:"local",cost:"free",diff:"easy",url:"https://lolbas-project.github.io"},
+    {name:"certutil / mshta drill",sub:"Download + exec, no curl",plat:"local",cost:"free",diff:"easy",url:""},
+  ]},
+  { num:"16", title:"PowerShell & .NET Tradecraft", labs:[
+    {name:"Bypassing Security CLM",sub:"PS restricted environments",plat:"thm",cost:"free",diff:"medium",url:"https://tryhackme.com/room/pshell"},
+    {name:"Abusing Windows Internals",sub:".NET reflection, loaders",plat:"thm",cost:"paid",diff:"hard",url:"https://tryhackme.com/room/abusingwindowsinternals"},
+    {name:"ConfuserEx obfuscation",sub:"Modify + recompile SharpHound",plat:"local",cost:"free",diff:"hard",url:""},
+  ]},
+  { num:"17", title:"Full Chain Simulation", labs:[
+    {name:"GOAD-Light",sub:"Full AD sim, timed runs",plat:"local",cost:"free",diff:"hard",url:"https://github.com/Orange-Cyberdefense/GOAD"},
+    {name:"HTB: Sauna",sub:"Exam-style, aim for under 2h",plat:"htb",cost:"free",diff:"easy",url:"https://app.hackthebox.com/machines/Sauna"},
+    {name:"HTB: Resolute",sub:"Aim for under 2h, no hints",plat:"htb",cost:"free",diff:"medium",url:"https://app.hackthebox.com/machines/Resolute"},
+    {name:"HTB: Mantis",sub:"MSSQL → Kerberos, hardest AD",plat:"htb",cost:"paid",diff:"hard",url:"https://app.hackthebox.com/machines/Mantis"},
+    {name:"HTB: Offshore Pro Lab",sub:"Multi-host AD, closest to exam",plat:"htb",cost:"paid",diff:"hard",url:"https://app.hackthebox.com/prolab/offshore"},
+  ]},
+];
+
+let activeFilter = 'all';
+
+function tagClass(plat){ return plat==='thm'?'tag-thm':plat==='htb'?'tag-htb':'tag-local'; }
+function costClass(c){ return c==='free'?'tag-free':'tag-paid'; }
+function diffClass(d){ return d==='easy'?'tag-easy':d==='medium'?'tag-medium':'tag-hard'; }
+function diffLabel(d){ return d==='easy'?'Beginner':d==='medium'?'Intermediate':'Advanced'; }
+function platLabel(p){ return p==='thm'?'THM':p==='htb'?'HTB':'LOCAL'; }
+
+function matches(lab){
+  if(activeFilter==='all') return true;
+  if(activeFilter==='thm') return lab.plat==='thm';
+  if(activeFilter==='htb') return lab.plat==='htb';
+  if(activeFilter==='local') return lab.plat==='local';
+  if(activeFilter==='free') return lab.cost==='free';
+  if(activeFilter==='easy') return lab.diff==='easy';
+  if(activeFilter==='medium') return lab.diff==='medium';
+  if(activeFilter==='hard') return lab.diff==='hard';
+  return true;
+}
+
+function render(){
+  const list = document.getElementById('phases-list');
+  const empty = document.getElementById('empty-msg');
+  let totalVisible=0, freeVisible=0, paidVisible=0;
+  list.innerHTML='';
+
+  phases.forEach((ph,idx)=>{
+    const visLabs = ph.labs.filter(matches);
+    if(visLabs.length===0) return;
+    totalVisible+=visLabs.length;
+    visLabs.forEach(l=>{ if(l.cost==='free') freeVisible++; else paidVisible++; });
+
+    const row = document.createElement('div');
+    row.className='phase-row';
+
+    const head = document.createElement('div');
+    head.className='phase-head';
+    head.innerHTML=`<span class="ph-num">Phase ${ph.num}</span><span class="ph-title">${ph.title}</span><i class="ti ti-chevron-down ph-chevron" aria-hidden="true"></i>`;
+
+    const grid = document.createElement('div');
+    grid.className='labs-grid';
+
+    visLabs.forEach(lab=>{
+      const card=document.createElement('div');
+      card.className='lab-card';
+      card.innerHTML=`<div class="lab-name">${lab.name}</div><div class="lab-sub">${lab.sub}</div><div class="tags"><span class="tag ${tagClass(lab.plat)}">${platLabel(lab.plat)}</span><span class="tag ${costClass(lab.cost)}">${lab.cost.toUpperCase()}</span><span class="tag ${diffClass(lab.diff)}">${diffLabel(lab.diff)}</span></div>`;
+      if(lab.url) card.onclick=()=>window.open(lab.url,'_blank');
+      else card.onclick=()=>sendPrompt(`Walk me through setting up the ${lab.name} for Phase ${ph.num}`);
+      grid.appendChild(card);
+    });
+
+    head.onclick=()=>{
+      const isOpen=grid.classList.contains('open');
+      grid.classList.toggle('open',!isOpen);
+      head.querySelector('.ph-chevron').classList.toggle('open',!isOpen);
+    };
+
+    row.appendChild(head); row.appendChild(grid);
+    list.appendChild(row);
+
+    if(activeFilter!=='all' || idx<2){
+      grid.classList.add('open');
+      head.querySelector('.ph-chevron').classList.add('open');
+    }
+  });
+
+  document.getElementById('total-labs').textContent=totalVisible;
+  document.getElementById('free-labs').textContent=freeVisible;
+  document.getElementById('paid-labs').textContent=paidVisible;
+  empty.style.display = totalVisible===0 ? 'block' : 'none';
+}
+
+document.getElementById('filters').addEventListener('click',e=>{
+  const btn=e.target.closest('[data-f]');
+  if(!btn) return;
+  document.querySelectorAll('.pill').forEach(p=>p.classList.remove('on'));
+  btn.classList.add('on');
+  activeFilter=btn.dataset.f;
+  render();
+});
+
+render();
+</script>
