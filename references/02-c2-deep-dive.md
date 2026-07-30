@@ -268,7 +268,7 @@ sliver > alias --session WKSTN01_SYSTEM -- "getuid"
 | Lab | Platform | Focus |
 |-----|---------|-------|
 | [THM: Intro to C2](https://tryhackme.com/room/introtoc2) | THM (Free) | C2 concepts, sessions |
-| [THM: Abusing Windows Internals](https://tryhackme.com/room/abusingwindowsinternals) | THM (Sub) | Process injection, migration |
+| [THM: Abusing Windows Internals](https://tryhackme.com/room/abusingwindowsinternals) | THM (Free) | Process injection, migration |
 | Manual: Sliver SOCKS5 | Your lab | Set up pivot from WS01 to DC |
 | Manual: Execute-assembly drill | Your lab | Run SharpHound, Rubeus, Seatbelt via exec-asm |
 
