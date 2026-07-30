@@ -1,6 +1,4 @@
-Here is the **complete, all-in-one Sliver C2 Mastery Guide** in a single Markdown file. It includes every phase, every command, and every technique you need for the CRTeamer exam, all in one easy-to-reference document.
-
-```markdown
+```
 #  Sliver C2 Mastery Guide – Complete Reference
 
 **Version:** 2.0  
