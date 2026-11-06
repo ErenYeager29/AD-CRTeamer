@@ -44,8 +44,8 @@ There are four language modes:
 ┌──────────────────────────────────────────────────────────────────────────┐
 │  MODE                     │ WHAT'S ALLOWED                               │
 ├───────────────────────────┼──────────────────────────────────────────────┤
-│  FullLanguage             │ Everything. All .NET types, COM objects,      │
-│                           │ Add-Type, custom classes, arbitrary code.     │
+│  FullLanguage             │ Everything. All .NET types, COM objects,     │
+│                           │ Add-Type, custom classes, arbitrary code.    │
 │                           │ This is the DEFAULT on a normal workstation. │
 ├───────────────────────────┼──────────────────────────────────────────────┤
 │  ConstrainedLanguage (CLM)│ Severely restricted. Only approved .NET      │
@@ -59,7 +59,7 @@ There are four language modes:
 │                           │ Essentially read-only. Used in Data sections.│
 ├───────────────────────────┼──────────────────────────────────────────────┤
 │  NoLanguage               │ Nothing. PowerShell processes commands only, │
-│                           │ no script code at all. API-driven use only. │
+│                           │ no script code at all. API-driven use only.  │
 └───────────────────────────┴──────────────────────────────────────────────┘
 ```
 
