@@ -9,6 +9,8 @@ A structured, phase-by-phase learning skill for the **Certified Red Teamer (CRTe
 [![Difficulty](https://img.shields.io/badge/difficulty-beginner%20→%20advanced-3fb950?style=flat-square)](./README.md)
 [![Exam](https://img.shields.io/badge/exam-CRTeamer%205hr%20practical-f85149?style=flat-square)](https://pentestingexams.com/certifications/professional/certified-red-teamer/)
 
+# Disclaimer: This is self made notes and assumption of exam as per syllabus. I assume the notes are not that depth, would encourage for contribution and suggestions or any corrections.
+
 ---
 
 ## This Skill vs The Cheatsheet Skill
